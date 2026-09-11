@@ -150,13 +150,16 @@ BACKEND_WEIGHTS = {
 }
 
 
-def backend_availability(name):
+def backend_availability(name, total=None):
     """(available, reason): can this backend be started on THIS box, now.
 
     Three facts, all read from the machine rather than assumed: the venv
     exists, the weights are on disk, and the card is big enough. A backend
     that fails one is still LISTED -- hiding it would hide the reason to buy
     the bigger card -- but it cannot be selected and a POST naming it is a 400.
+
+    `total` is the card's VRAM in GB when the caller already has it: /api/config
+    asks about every backend and nvidia-smi is a subprocess each time.
     """
     forced = (os.environ.get("STUDIO_FORCE_AVAILABLE", "").split(",")
               if TEST_HOOKS else [])
@@ -169,7 +172,8 @@ def backend_availability(name):
     # The card before the weights: on a small card the installer skips the
     # download on purpose, and "weights missing" would send someone to fetch
     # 8 GB that cannot run.
-    _used, total = gpu_memory()
+    if total is None:
+        _used, total = gpu_memory()
     need = cfg.get("vram_gb") or 0
     if total and need and total + 0.5 < need:
         return False, (f"needs a {need:.0f} GB card; this one has "
@@ -846,9 +850,10 @@ def _capabilities(cfg):
 @app.get("/api/config")
 def get_config():
     backends = {}
+    _used, total_gb = gpu_memory()
     for name, cfg in BACKENDS.items():
         meta = PROMPT_META.get(name, {})
-        avail, why = backend_availability(name)
+        avail, why = backend_availability(name, total=total_gb or 0)
         backends[name] = {"label": cfg["label"], "note": cfg["note"],
                           "vram_gb": cfg["vram_gb"], "available": avail,
                           "unavailable_reason": why, **meta}

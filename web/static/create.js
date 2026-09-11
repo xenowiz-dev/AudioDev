@@ -508,7 +508,11 @@ function paintScore() {
 
 function paintSteps() {
   $('#c-steps-field').hidden = !supports('steps');
-  $('#c-duration-field').hidden = !supports('duration');
+  const dur = supports('duration');
+  $('#c-duration-field').hidden = !dur;
+  // Preview is "the first 15 s": it caps the duration. An engine with no
+  // duration control would render the whole song under that label.
+  $('#c-preview').hidden = !dur;
 }
 
 const qualityApplies = (name) => !!qual && (qual.applies_to || ['minimax']).includes(name);

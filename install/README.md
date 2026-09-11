@@ -73,7 +73,7 @@ captured with `pip freeze`, not hand-written. Regenerate them after changing an
 environment:
 
 ```powershell
-foreach ($v in "studio","minimax","acestep","lyrics","watermark","flashsr","msst","audiosr") {
+foreach ($v in "studio","minimax","acestep","lyrics","watermark","flashsr","msst","audiosr","yue2") {
   & ".\$v\.venv\Scripts\python.exe" -m pip freeze --local > ".\install\requirements\$v.txt"
 }
 & ".\train\.venv-label\Scripts\python.exe" -m pip freeze --local > ".\install\requirements\label.txt"
