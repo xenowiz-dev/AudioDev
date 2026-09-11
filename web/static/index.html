@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07060E">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Studio">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>AudioDev Studio</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ───────────────────────── app bar ───────────────────────── -->
+  <header class="appbar">
+    <h1 class="appbar-title" id="appbar-title">Library</h1>
+
+    <form class="searchfield" id="searchfield" hidden autocomplete="off">
+      <span class="searchfield-i" data-icon="search"></span>
+      <input type="search" id="q" placeholder="Search titles, styles, lyrics, workspaces" enterkeyhint="search">
+      <button type="button" class="iconbtn searchfield-x" id="search-close" aria-label="Close search" data-icon="x"></button>
+    </form>
+
+    <div class="appbar-right">
+      <button type="button" class="gpu-chip" id="gpu-chip" title="GPU memory — tap to unload the resident model">
+        <span id="gpu-text">GPU …</span>
+      </button>
+      <button type="button" class="iconbtn" id="search-open" aria-label="Search" data-icon="search"></button>
+      <button type="button" class="iconbtn" id="settings-open" aria-label="Settings" data-icon="settings"></button>
+    </div>
+  </header>
+
+  <!-- ───────────────────────── filter chips ───────────────────────── -->
+  <div class="chiprow" id="chiprow" role="tablist" aria-label="Library filters">
+    <div class="wsbar" id="wsbar" hidden>
+      <span class="wsbar-k">Workspace</span>
+      <select id="ws-select" aria-label="Workspace"></select>
+    </div>
+    <span id="chipslot"></span>
+  </div>
+
+  <!-- ───────────────────────── left rail (desktop) ───────────────────────── -->
+  <nav class="rail" id="rail" aria-label="Sections"></nav>
+
+  <!-- ───────────────────────── main ───────────────────────── -->
+  <main class="main" id="main">
+
+    <!-- ========== LIBRARY ========== -->
+    <section class="pane" id="pane-library" aria-label="Library">
+      <div class="rowlist" id="rowlist"></div>
+      <div class="rowlist-sentinel" id="rowlist-sentinel"></div>
+      <p class="liststatus" id="liststatus"></p>
+      <div class="homeslot" id="homeslot-library" hidden>
+        <div id="side-library"></div>
+      </div>
+    </section>
+
+    <!-- ========== CREATE ========== -->
+    <section class="pane" id="pane-create" aria-label="Create" hidden>
+      <div class="formcol">
+
+        <!-- Cover mode banner (§7). Hidden unless cover mode is on; while it is
+             on it is the first thing in the form, so which track is being
+             covered is never a guess. -->
+        <div class="coverban" id="c-cover-banner" hidden>
+          <div class="coverban-art">
+            <img alt="" id="c-cover-img" hidden>
+            <span class="coverban-ph" id="c-cover-ph" data-icon="cover"></span>
+          </div>
+          <div class="coverban-txt">
+            <p class="coverban-k">Covering</p>
+            <p class="coverban-t" id="c-cover-title"></p>
+            <p class="coverban-why" id="c-cover-why"></p>
+          </div>
+          <button type="button" class="iconbtn coverban-x" id="c-cover-off"
+                  aria-label="Leave cover mode" data-icon="x"></button>
+        </div>
+
+        <section class="cgroup" id="cg-mode">
+          <p class="eyebrow">Mode</p>
+        <!-- §7: the switch is the only cover UI a normal user ever sees. The
+             controls below it exist only while cover mode is on. -->
+        <label class="check" id="c-cover-toggle">
+          <input type="checkbox" id="c-cover-on">
+          <span>Cover an existing track <em>(ACE-Step)</em></span>
+        </label>
+        </section>
+
+        <section class="cgroup" id="cg-cover" hidden>
+          <p class="eyebrow">Cover source</p>
+        <div class="panel" id="c-cover-fields" hidden>
+          <p class="fhint" id="c-cover-note"></p>
+          <div class="field">
+            <label class="flabel" for="c-src-path">Source path</label>
+            <input type="text" id="c-src-path" placeholder="B:\Music\song.mp3" spellcheck="false">
+          </div>
+          <div class="btnrow">
+            <label class="btn btn--ghost filebtn">Upload a file
+              <input type="file" id="c-upload" accept=".wav,.flac,.mp3,.m4a,.aac,.ogg,.opus">
+            </label>
+            <button type="button" class="btn btn--ghost" id="c-src-clear">Clear</button>
+          </div>
+          <p class="fhint" id="c-src-msg"></p>
+          <div class="field">
+            <label class="flabel" for="c-cstr">Cover strength <output id="c-cstr-out">1.00</output></label>
+            <input type="range" id="c-cstr" min="0" max="1" step="0.05" value="1">
+          </div>
+          <div class="field">
+            <label class="flabel" for="c-nstr">Noise strength <output id="c-nstr-out">0.75</output></label>
+            <input type="range" id="c-nstr" min="0" max="1" step="0.05" value="0.75">
+          </div>
+        </div>
+        </section>
+
+        <section class="cgroup" id="cg-model">
+          <p class="eyebrow">Engine</p>
+        <div class="field">
+          <label class="flabel" for="c-model">Model</label>
+          <select id="c-model"></select>
+          <p class="fhint" id="c-model-note"></p>
+          <p class="fhint" id="c-caps"></p>
+          <p class="fhint fhint--warn" id="c-model-pin" hidden></p>
+        </div>
+
+        <div class="field" id="c-variant-field" hidden>
+          <label class="flabel" for="c-variant">Checkpoint</label>
+          <select id="c-variant"></select>
+          <p class="fhint" id="c-variant-note"></p>
+        </div>
+
+        <div class="field" id="c-lora-field">
+          <label class="flabel" for="c-lora">LoRA</label>
+          <select id="c-lora"></select>
+          <p class="fhint" id="c-lora-note"></p>
+          <div id="c-lora-scale-wrap" hidden>
+            <label class="flabel" for="c-lora-scale">Scale <output id="c-lora-scale-out">1.00</output></label>
+            <input type="range" id="c-lora-scale" min="0" max="1.5" step="0.05" value="1">
+            <p class="fhint">1.0 is as trained. Lower blends back toward the base
+              model; above 1.0 exaggerates the style and starts to distort.</p>
+          </div>
+        </div>
+        </section>
+
+
+        <section class="cgroup" id="cg-song">
+          <p class="eyebrow">Song</p>
+        <div class="field">
+          <label class="flabel" for="c-prompt">Style / prompt</label>
+          <textarea id="c-prompt" rows="6" spellcheck="false"></textarea>
+          <p class="fhint" id="c-prompt-info"></p>
+          <div class="btnrow">
+            <button type="button" class="btn btn--ghost" id="c-write-style" hidden>Write with AI</button>
+          </div>
+        </div>
+
+        <div class="field" id="c-lyrics-field">
+          <label class="flabel" for="c-lyrics">Lyrics</label>
+          <textarea id="c-lyrics" rows="6" spellcheck="false"></textarea>
+          <p class="fhint" id="c-lyrics-info"></p>
+          <div class="btnrow">
+            <button type="button" class="btn btn--ghost" id="c-write-lyrics" hidden>Write with AI</button>
+            <button type="button" class="btn btn--ghost" id="c-lyr-find">Find lyrics</button>
+            <button type="button" class="btn btn--ghost" id="c-lyr-apply">Apply found</button>
+            <button type="button" class="btn btn--ghost" id="c-lyr-tx">Transcribe</button>
+          </div>
+          <p class="fhint" id="c-lyr-msg"></p>
+        </div>
+
+        <label class="check" id="c-instr-wrap">
+          <input type="checkbox" id="c-instrumental">
+          <span>Instrumental</span>
+        </label>
+        </section>
+
+        <section class="cgroup" id="cg-output">
+          <p class="eyebrow">Output</p>
+        <div class="field">
+          <label class="flabel" for="c-duration">Duration <output id="c-duration-out">30s</output></label>
+          <input type="range" id="c-duration" min="10" max="300" step="5" value="30">
+          <label class="check" id="c-autodur-wrap" hidden><input type="checkbox" id="c-autodur"><span>Let the model choose</span></label>
+          <p class="fhint" id="c-fit"></p>
+        </div>
+
+        <div class="field" id="c-think-field" hidden>
+          <label class="check"><input type="checkbox" id="c-thinking"><span>Thinking mode</span></label>
+          <p class="fhint" id="c-think-note"></p>
+          <div id="c-lmtemp-wrap" hidden>
+            <label class="flabel" for="c-lmtemp">Weirdness <output id="c-lmtemp-out">1.00</output></label>
+            <input type="range" id="c-lmtemp" min="0" max="2" step="0.05" value="1">
+            <p class="fhint">The 5Hz LM's sampling temperature. Low is safe and
+              predictable; high invents stranger bpm, key and arrangement choices.</p>
+          </div>
+        </div>
+
+        <div class="field" id="c-takes-field" hidden>
+          <label class="flabel" for="c-takes">Takes <output id="c-takes-out">1</output></label>
+          <input type="range" id="c-takes" min="1" max="2" step="1" value="1">
+          <p class="fhint" id="c-takes-note"></p>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label class="flabel" for="c-steps">Steps <output id="c-steps-out">30</output></label>
+            <input type="range" id="c-steps" min="4" max="60" step="1" value="30">
+          </div>
+          <div class="field">
+            <label class="flabel" for="c-seed">Seed</label>
+            <input type="number" id="c-seed" value="7" inputmode="numeric">
+            <div class="btnrow">
+              <button type="button" class="btn btn--ghost" id="c-seed-roll">Roll a new seed</button>
+            </div>
+            <p class="fhint">Same seed and same settings gives the same song. Roll for a different one.</p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="flabel" for="c-post">Post-processing</label>
+          <select id="c-post"></select>
+          <p class="fhint" id="c-post-note"></p>
+        </div>
+        </section>
+
+        <!-- §6: quality trades. Collapsed, and only for backends it applies to. -->
+        <details class="disclose" id="c-adv">
+          <summary>Advanced <span class="chevron" data-icon="chevron"></span></summary>
+          <div class="disclose-body">
+            <p class="fhint" id="c-adv-intro"></p>
+
+            <div class="field">
+              <label class="flabel" for="c-qpreset">Quality</label>
+              <select id="c-qpreset"></select>
+              <p class="fhint" id="c-qpreset-note"></p>
+            </div>
+
+            <div class="qcustom" id="c-qcustom" hidden>
+              <div class="grid2">
+                <div class="field">
+                  <label class="flabel" for="c-qllm">Music model</label>
+                  <select id="c-qllm"></select>
+                </div>
+                <div class="field">
+                  <label class="flabel" for="c-qrvq">Audio decoder</label>
+                  <select id="c-qrvq"></select>
+                </div>
+              </div>
+              <div class="grid2">
+                <div class="field">
+                  <label class="flabel" for="c-qkv">Song memory</label>
+                  <select id="c-qkv"></select>
+                </div>
+                <div class="field">
+                  <label class="flabel" for="c-qreserve">Keep free</label>
+                  <select id="c-qreserve"></select>
+                </div>
+              </div>
+            </div>
+
+            <p class="fhint" id="c-qfit"></p>
+            <ul class="costs" id="c-qcosts"></ul>
+            <p class="fhint" id="c-qceiling"></p>
+            <p class="fhint" id="c-qloaded"></p>
+          </div>
+        </details>
+      </div>
+
+      <div class="homeslot" id="homeslot-create">
+        <div id="side-create"></div>
+      </div>
+
+      <p class="fhint" id="c-ws-note" hidden></p>
+
+      <div class="actionbar" id="c-actions">
+        <button type="button" class="btn btn--ghost" id="c-preview">Preview 15s</button>
+        <button type="button" class="btn btn--primary" id="c-go">Generate</button>
+      </div>
+    </section>
+
+    <!-- ========== RESTORE ========== -->
+    <section class="pane" id="pane-restore" aria-label="Restore" hidden>
+      <div class="formcol">
+        <div class="field">
+          <label class="flabel" for="r-path">Source file</label>
+          <input type="text" id="r-path" placeholder="B:\Music\lossy.mp3" spellcheck="false">
+          <div class="btnrow">
+            <label class="btn btn--ghost filebtn">Upload
+              <input type="file" id="r-upload" accept=".wav,.flac,.mp3,.m4a,.aac,.ogg,.opus">
+            </label>
+            <button type="button" class="btn btn--ghost" id="r-inspect">Inspect</button>
+            <button type="button" class="btn btn--ghost" id="r-cliff">Detect cliff</button>
+          </div>
+          <p class="fhint" id="r-msg"></p>
+        </div>
+
+        <div class="field">
+          <label class="flabel" for="r-kind">Upscaler</label>
+          <select id="r-kind"></select>
+          <p class="fhint" id="r-kind-note"></p>
+        </div>
+
+        <div class="field">
+          <label class="flabel" for="r-degrade">Degrade first</label>
+          <select id="r-degrade"></select>
+          <p class="fhint" id="r-degrade-note"></p>
+          <p class="fhint">Damage the file on purpose so the upscaler has something to
+            rebuild. Generated music has no codec cliff, and upscaling a clean file
+            mostly sharpens what is already there — cutting a band out first means the
+            upscaler <em>synthesises</em> that band instead. The original is never
+            touched.</p>
+        </div>
+
+        <div class="field">
+          <label class="flabel" for="r-natural">Analogue pass</label>
+          <select id="r-natural"></select>
+          <p class="fhint">After restoring: a 24 Hz highpass, tape-style saturation
+            (adds the harmonics that make things sound warm), a quiet pink noise floor
+            in place of digital silence, and a loudness match. Runs last, on the
+            finished file.</p>
+        </div>
+
+        <label class="check"><input type="checkbox" id="r-lowpass" checked><span>Auto lowpass <em>(AudioSR only)</em></span></label>
+        <label class="check"><input type="checkbox" id="r-fill" checked><span>Splice only the selected region</span></label>
+        <label class="check"><input type="checkbox" id="r-compare" checked><span>Render before/after figure</span></label>
+
+        <fieldset class="region">
+          <legend>Region</legend>
+          <div class="region-grid" id="region-grid"></div>
+          <div class="btnrow">
+            <button type="button" class="btn btn--ghost" id="r-reset">Reset region</button>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="homeslot" id="homeslot-restore">
+        <div id="side-restore"></div>
+      </div>
+
+      <div class="actionbar" id="r-actions">
+        <button type="button" class="btn btn--primary" id="r-go">Upscale</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ───────────────────────── desktop detail column ───────────────────────── -->
+  <aside class="detail" id="detail" hidden>
+    <div class="detailslot" id="detailslot-library"></div>
+    <div class="detailslot" id="detailslot-create"></div>
+    <div class="detailslot" id="detailslot-restore"></div>
+  </aside>
+
+  <!-- ───────────────────────── mini player ───────────────────────── -->
+  <div class="dock" id="dock" hidden>
+    <div class="dock-seek" id="dock-seek" role="slider" aria-label="Seek" tabindex="-1">
+      <div class="dock-rail"><div class="dock-fill" id="dock-fill"></div></div>
+    </div>
+    <div class="dock-body">
+      <button type="button" class="dock-art" id="dock-art" aria-label="Open player"><img alt="" id="dock-img"></button>
+      <button type="button" class="dock-meta" id="dock-meta" aria-label="Open player">
+        <span class="dock-title" id="dock-title">Nothing loaded</span>
+        <span class="dock-sub" id="dock-sub"></span>
+      </button>
+      <div class="dock-x" id="dock-extra"><span class="dock-time" id="dock-time">0:00 / 0:00</span></div>
+      <button type="button" class="dock-btn dock-btn--wide" id="dock-shuffle" aria-label="Shuffle" data-icon="shuffle"></button>
+      <button type="button" class="dock-btn dock-btn--wide" id="dock-prev" aria-label="Previous" data-icon="prev"></button>
+      <button type="button" class="dock-btn" id="dock-play" aria-label="Play" data-icon="play"></button>
+      <button type="button" class="dock-btn" id="dock-next" aria-label="Next" data-icon="next"></button>
+      <button type="button" class="dock-btn dock-btn--wide" id="dock-repeat" aria-label="Repeat" data-icon="repeat"></button>
+      <label class="dock-vol dock-btn--wide" aria-label="Volume">
+        <span data-icon="gpu" hidden></span>
+        <input type="range" id="dock-volume" min="0" max="1" step="0.02" value="1" aria-label="Volume">
+      </label>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── bottom nav ───────────────────────── -->
+  <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+</div>
+
+<!-- ───────────────────────── now playing ───────────────────────── -->
+<div class="now" id="now" aria-hidden="true">
+  <div class="now-head" id="now-head">
+    <button type="button" class="iconbtn" id="now-close" aria-label="Collapse player" data-icon="chevron-down"></button>
+    <span class="now-eyebrow">NOW PLAYING</span>
+    <button type="button" class="iconbtn" id="now-more" aria-label="Track actions" data-icon="more"></button>
+  </div>
+  <div class="now-body" id="now-body">
+    <div class="now-art" id="now-art"><img alt="" id="now-img"></div>
+    <h2 class="now-title" id="now-title"></h2>
+    <p class="now-style" id="now-style"></p>
+    <p class="now-meta" id="now-meta"></p>
+    <div class="now-seek">
+      <input type="range" id="now-range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+    </div>
+    <div class="now-times"><span id="now-elapsed">0:00</span><span id="now-total">0:00</span></div>
+  </div>
+  <div class="now-foot">
+    <div class="now-transport">
+      <button type="button" class="iconbtn now-t" id="now-shuffle" aria-label="Shuffle" data-icon="shuffle"></button>
+      <button type="button" class="iconbtn now-t now-t--md" id="now-prev" aria-label="Previous" data-icon="prev"></button>
+      <button type="button" class="now-play" id="now-play" aria-label="Play" data-icon="play"></button>
+      <button type="button" class="iconbtn now-t now-t--md" id="now-next" aria-label="Next" data-icon="next"></button>
+      <button type="button" class="iconbtn now-t" id="now-repeat" aria-label="Repeat" data-icon="repeat"></button>
+    </div>
+    <div class="now-actions" id="now-actions"></div>
+  </div>
+</div>
+
+<!-- ───────────────────────── sheet + toast hosts ───────────────────────── -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-grab" id="sheet-grab"><span></span></div>
+  <div class="sheet-head">
+    <h2 class="sheet-title" id="sheet-title"></h2>
+    <button type="button" class="iconbtn" id="sheet-close" aria-label="Close" data-icon="x"></button>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- exactly one audio element for the whole session -->
+<audio id="audio" preload="metadata" playsinline></audio>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

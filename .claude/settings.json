@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-CimInstance *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(Get-Date*)",
+      "PowerShell(Test-NetConnection *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(Write-Output *)",
+      "PowerShell(Start-Sleep *)",
+      "PowerShell(nvidia-smi *)",
+      "PowerShell(nvidia-smi)",
+      "Bash(nvidia-smi *)",
+      "Bash(nvidia-smi)",
+      "Bash(tasklist *)",
+      "Bash(ffprobe *)"
+    ]
+  }
+}

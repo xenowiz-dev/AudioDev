@@ -1,0 +1,4 @@
+# Bytes in, bytes out. The whole tree is LF already and PowerShell reads LF
+# fine; letting git "help" with CRLF on one machine and not the other is how
+# a working script grows a stray \r in a path.
+* -text

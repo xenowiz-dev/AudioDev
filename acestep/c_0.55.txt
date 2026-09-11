@@ -1,0 +1,5 @@
+init ok: True device: cuda
+cover: noise_strength=0.55 cover_strength=1.0 lyrics=yes (253 chars)
+generated in 6s
+wrote B:\AudioDev\Music\covers\v2_folk_ns055.wav
+  (also produced 912c6971-100c-8e73-75c4-f10a0d4182ff.flac)

@@ -1,0 +1,1211 @@
+/* ============================================================================
+   AudioDev Studio — mobile first (390x844), desktop two-pane at >=900px.
+   No build step, no CDN. Dark only.
+   ========================================================================== */
+
+:root {
+  /* ── palette ───────────────────────────────────────────────────────────
+     Every accent has a JOB. Nothing is tinted for decoration:
+       violet  the app's own chrome, and Create
+       rose    the music -- Library
+       cyan    the machine -- Restore, and every measured number
+     `--accent` is re-pointed per pane further down, so one rule set carries
+     all three and no component hard-codes a hue.
+
+     Ratios are measured against the three grounds this app actually paints
+     on (--bg, --surface, --surface-2), not assumed:
+       lumen  12.31 : 1    muted  5.32 : 1 (worst case)
+       cyan   11.73 : 1    rose   6.60 : 1
+     `--violet` is 4.16:1 on --surface-2 -- fine for a border or a fill, UNDER
+     AA for body text, which is why `--accent-txt` exists and is a lighter
+     tint. Use --accent for ink and edges, --accent-txt for words. */
+  --void:   #07060E;
+  --ink:    #0E0C1C;
+  --ink-2:  #151130;
+  --ink-3:  #1d1840;
+  --rule:   #241E44;
+  --lumen:  #C9C4FF;
+  --muted:  #8B85B8;
+
+  --violet: #7A5CFF;  --violet-txt: #8E75FF;  --violet-hi: #A594FF;  --violet-lo: #5B3FE0;
+  --cyan:   #35E6E0;  --cyan-txt:   #35E6E0;  --cyan-hi:   #7BF3EF;  --cyan-lo:   #16C4BE;
+  --rose:   #FF5CC8;  --rose-txt:   #FF5CC8;  --rose-hi:   #FF8FDA;  --rose-lo:   #E03BA6;
+
+  /* default; body[data-pane] overrides it */
+  --accent:     var(--violet);
+  --accent-txt: var(--violet-txt);
+  --accent-hi:  var(--violet-hi);
+  --accent-lo:  var(--violet-lo);
+  --accent-rgb: 122, 92, 255;
+
+  /* ── names the other 800 lines already use ─────────────────────────────
+     Remapped rather than renamed in a hundred places. `--amber` is now the
+     live accent, so every rule written against it follows the pane. */
+  --bg:        var(--void);
+  --surface:   var(--ink);
+  --surface-2: var(--ink-2);
+  --surface-3: var(--ink-3);
+  --line:      var(--rule);
+  --text:      var(--lumen);
+  --dim:       var(--muted);
+  /* Nothing dimmer than --muted clears 4.5:1 on --surface-3 (the next step
+     down measures 4.34), so the two are the same value and the distinction is
+     carried by size and weight instead of by colour. */
+  --dimmer:    var(--muted);
+  --amber:     var(--accent);
+  --amber-dim: var(--rule);
+  --teal:      var(--cyan);
+  --red:       #FF5C7A;
+  --amber-hi:   var(--accent-hi);
+  --amber-lo:   var(--accent-lo);
+  --amber-glow: rgba(var(--accent-rgb), .20);
+
+  /* ── type ──────────────────────────────────────────────────────────────
+     Three faces, three jobs: a squared display for names, a grotesque for
+     prose, a mono for every label and measured number.
+
+     Still NO fonts.googleapis.com link -- the phone reaches this over
+     Tailscale and may have no route out, so a remote face would sit in the
+     render path of the app's own headings. The families are named first and
+     the system stack behind them, so dropping self-hosted woff2 into
+     static/fonts/ upgrades the whole app without touching a rule. */
+  --f-display: "Chakra Petch", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --f-body:    "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
+  --f-mono:    "IBM Plex Mono", ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+
+  --font:         var(--f-body);
+  --mono:         var(--f-mono);
+  --font-display: var(--f-display);
+
+  --fs-xs:    0.6875rem;  /* 11 */
+  --fs-sm:    0.75rem;    /* 12 */
+  --fs-base:  0.875rem;   /* 14 */
+  --fs-md:    0.9375rem;  /* 15 */
+  --fs-input: 1rem;       /* 16 — MANDATORY on editable fields (iOS zoom) */
+  --fs-lg:    1.125rem;   /* 18 */
+  --fs-xl:    1.5rem;     /* 24 */
+  --fs-2xl:   1.75rem;    /* 28 — display sizes only, never an editable field */
+  --lh-tight: 1.25;
+  --lh-base:  1.45;
+  /* the recurring micro-label: mono, small caps-by-transform, wide tracking */
+  --ls-label: .2em;
+
+  /* spacing */
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem;
+  --sp-4: 1rem;   --sp-5: 1.5rem; --sp-6: 2rem;
+
+  /* ── radii ─────────────────────────────────────────────────────────────
+     Square. The whole visual language is hairline rules and viewfinder
+     brackets, and a rounded corner cannot carry a bracket -- the two read as
+     different products on the same screen. Circles survive only where the
+     THING is round: the cover art is a circular spectrogram, and a dot is a
+     dot. Those set border-radius explicitly rather than through a token. */
+  --r-sm: 0; --r-md: 0; --r-lg: 0; --r-xl: 0; --r-full: 999px;
+  --sh-sheet: 0 -8px 32px rgba(0,0,0,.6);
+  /* art.py draws every cover as a circular spectrogram whose RAMP stop 0.00 is
+     the page colour, so the ground behind a cover that has not loaded yet has
+     to be a disc too, or every lazy image flashes a lighter square first. */
+  --disc: radial-gradient(circle at 50% 50%, #17123a 0 30%, var(--void) 72%);
+
+  /* motion: one curve, three durations, so a transition's length is a
+     decision rather than whatever number was typed that afternoon. */
+  --ease:   cubic-bezier(.2,.8,.25,1);
+  --t-fast: .16s;
+  --t-base: .24s;
+  --t-slow: .32s;
+
+  /* metrics */
+  --tap: 44px;
+  --appbar-h: 48px;
+  --chiprow-h: 48px;
+  --dock-h: 64px;
+  --tabbar-h: 56px;
+  --row-h: 72px;
+  --inset-t: env(safe-area-inset-top, 0px);
+  --inset-b: env(safe-area-inset-bottom, 0px);
+  --kb: 0px;
+}
+
+/* Accent follows the pane, the way the reference design's field follows the
+   section. Set by go() in app.js; before it runs the :root default stands. */
+body[data-pane="library"] {
+  --accent: var(--rose); --accent-txt: var(--rose-txt);
+  --accent-hi: var(--rose-hi); --accent-lo: var(--rose-lo);
+  --accent-rgb: 255, 92, 200;
+}
+body[data-pane="create"] {
+  --accent: var(--violet); --accent-txt: var(--violet-txt);
+  --accent-hi: var(--violet-hi); --accent-lo: var(--violet-lo);
+  --accent-rgb: 122, 92, 255;
+}
+body[data-pane="restore"] {
+  --accent: var(--cyan); --accent-txt: var(--cyan-txt);
+  --accent-hi: var(--cyan-hi); --accent-lo: var(--cyan-lo);
+  --accent-rgb: 53, 230, 224;
+}
+
+html { box-sizing: border-box; -webkit-text-size-adjust: 100%; }
+*, *::before, *::after { box-sizing: inherit; }
+/* Chrome 131+ slots a <details>'s children into a ::details-content pseudo,
+   and the universal selector never matches a pseudo-element — so the
+   `box-sizing: inherit` chain SNAPS there and everything inside any <details>
+   silently reverts to content-box. A width:100% select then measures 100%
+   PLUS its 44px of padding and shoves the form 13px past a 390px screen. */
+::details-content { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior-y: none; }
+body {
+  position: fixed; inset: 0;
+  background: var(--bg); color: var(--text);
+  font: var(--fs-base)/var(--lh-base) var(--font);
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, p, figure { margin: 0; }
+img { max-width: 100%; display: block; }
+svg { display: block; }
+[hidden] { display: none !important; }
+
+/* ── shell ─────────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  height: 100vh;            /* fallback */
+  height: 100dvh;
+  grid-template-rows: auto auto 1fr auto auto;
+  grid-template-areas: "appbar" "chips" "main" "dock" "tabs";
+  overflow: hidden;
+}
+.appbar  { grid-area: appbar; }
+.chiprow { grid-area: chips; }
+.main    { grid-area: main; }
+.dock    { grid-area: dock; }
+.tabbar  { grid-area: tabs; }
+.rail, .detail { display: none; }
+
+.main {
+  overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: var(--sp-5);
+  min-width: 0;
+}
+.pane { min-width: 0; }
+
+/* ── buttons, base ─────────────────────────────────────────────────────── */
+button, .btn {
+  font: inherit; color: inherit;
+  background: none; border: 0; margin: 0;
+  min-height: var(--tap);
+  touch-action: manipulation;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--sp-2);
+}
+button:active, .btn:active { transform: scale(.97); }
+button:focus-visible, .btn:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--amber); outline-offset: 2px;
+}
+
+.iconbtn {
+  width: var(--tap); height: var(--tap);
+  min-width: var(--tap); flex: 0 0 auto;
+  border-radius: var(--r-md); color: var(--dim);
+  padding: 0;
+}
+.iconbtn svg { width: 22px; height: 22px; }
+.iconbtn--on { color: var(--amber); }
+.iconbtn--down.iconbtn--on { color: var(--red); }
+
+.btn {
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: var(--fs-md); font-weight: 600;
+  border: 1px solid var(--line);
+}
+/* Base shape only. The design-system layer at the foot of this file gives the
+   primary button its flat accent fill -- deliberately NOT a gradient, because
+   a dark label measures 4.61:1 on violet at full strength and only 3.10:1
+   against the darker stop a gradient introduces. The fill is what passes AA. */
+.btn--primary {
+  background: var(--accent);
+  color: var(--void); border-color: var(--accent);
+}
+.btn--ghost   { background: transparent; }
+.btn--danger  { color: var(--red); }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+.btn--wide { width: 100%; }
+
+@media (hover: hover) and (pointer: fine) {
+  .iconbtn:hover { color: var(--text); background: var(--surface-2); }
+  .btn:hover { background: var(--surface-3); }
+  .btn--primary:hover { background: var(--accent-hi); }
+}
+
+/* ── app bar ───────────────────────────────────────────────────────────── */
+.appbar {
+  height: calc(var(--appbar-h) + var(--inset-t));
+  padding: var(--inset-t) var(--sp-2) 0 var(--sp-4);
+  display: flex; align-items: center; gap: var(--sp-1);
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.appbar-title {
+  font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.01em;
+  flex: 1 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.appbar-right { display: flex; align-items: center; gap: var(--sp-1); flex: 0 0 auto; }
+
+/* 28px pill, 44px target: the eye measures the span, the thumb the button. */
+.gpu-chip { min-height: var(--tap); padding: 0 var(--sp-1); border-radius: var(--r-full); }
+.gpu-chip > span {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 var(--sp-2);
+  border-radius: var(--r-full); border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
+  color: var(--teal); white-space: nowrap;
+}
+.gpu-chip--loaded > span { color: var(--amber); border-color: var(--amber-dim); }
+.gpu-chip--warn   > span { color: var(--red); }
+
+.searchfield {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: var(--sp-1);
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding-left: var(--sp-2);
+  height: var(--tap);
+}
+.searchfield-i { display: flex; color: var(--dim); }
+.searchfield-i svg { width: 18px; height: 18px; }
+.searchfield input {
+  flex: 1 1 auto; min-width: 0;
+  background: none; border: 0; color: var(--text);
+  font-size: var(--fs-input); padding: 0 var(--sp-1); height: 100%;
+}
+.searchfield input::-webkit-search-cancel-button { display: none; }
+.searchfield-x { height: var(--tap); width: var(--tap); }
+.searchfield-x svg { width: 18px; height: 18px; }
+
+/* ── chip row ──────────────────────────────────────────────────────────── */
+.chiprow {
+  height: var(--chiprow-h);
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.chiprow::-webkit-scrollbar { display: none; }
+
+/* The workspace picker leads the chip row and must NOT read as another chip:
+   a chip filters what you are looking at, a workspace is the project you are
+   working IN and decides where new songs land. Different job, different shape
+   — a select with a leading label, pinned so it survives horizontal scroll. */
+.wsbar {
+  display: flex; align-items: center; gap: var(--sp-1);
+  flex: 0 0 auto; padding-right: var(--sp-2);
+  margin-right: var(--sp-1); border-right: 1px solid var(--line);
+  position: sticky; left: 0; z-index: 1; background: var(--bg);
+}
+.wsbar-k { font-size: var(--fs-sm); color: var(--dim); }
+.wsbar select {
+  height: 32px; min-width: 108px; max-width: 168px;
+  padding: 0 var(--sp-2); font-size: var(--fs-sm);
+  border-radius: var(--r-full);
+}
+.wsbar select.wsbar--on { border-color: var(--amber); color: var(--amber); }
+
+/* 44px tap target, smaller visual pill inside — the acceptance test measures
+   the button, the eye measures the span. */
+.chip {
+  min-height: var(--tap); height: var(--tap); min-width: var(--tap);
+  padding: 0; flex: 0 0 auto; border-radius: var(--r-full);
+}
+.chip > span {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  height: 30px; padding: 0 var(--sp-3);
+  border-radius: var(--r-full);
+  border: 1px solid var(--line); background: var(--surface);
+  font-size: var(--fs-sm); font-weight: 600; color: var(--dim);
+  max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chip--on > span {
+  background: rgba(var(--accent-rgb), .14); border-color: var(--amber-dim); color: var(--amber);
+}
+.chip svg { width: 14px; height: 14px; flex: 0 0 auto; }
+
+/* ── row list ──────────────────────────────────────────────────────────── */
+.rowlist { display: flex; flex-direction: column; }
+.row {
+  display: flex; align-items: center; gap: var(--sp-2);
+  height: var(--row-h); padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  position: relative; min-width: 0;
+}
+.row:active { background: var(--surface-2); }
+.row--playing { background: rgba(var(--accent-rgb), .07); }
+.row--playing::after {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  background: var(--amber); border-radius: 0 2px 2px 0;
+}
+.row-new {
+  position: absolute; left: 3px; top: 50%; margin-top: -3px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--teal);
+}
+.row--playing .row-new { display: none; }
+
+.thumb {
+  width: 56px; height: 56px; min-width: 56px; min-height: 56px;
+  flex: 0 0 auto; padding: 0;
+  border-radius: var(--r-md); overflow: hidden; position: relative;
+  /* 56px keeps --r-md rather than going circular: at this size a rim is one
+     pixel wide, and .dur needs a corner to sit in. The disc ground still stops
+     the pre-load flash, because the cover's own corners are --bg anyway. */
+  background: var(--disc); color: var(--dimmer);
+}
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb svg { width: 24px; height: 24px; }
+.dur {
+  position: absolute; right: 2px; bottom: 2px;
+  font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
+  background: rgba(7, 6, 14, .78); color: #fff;
+  padding: 0 3px; border-radius: 3px; line-height: 1.35;
+}
+.thumb-state {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(7, 6, 14, .55); color: var(--amber);
+}
+.row--playing .thumb-state { display: flex; }
+
+.meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.meta-l1 { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.title {
+  font-size: var(--fs-md); font-weight: 600; line-height: var(--lh-tight);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.take {
+  flex: 0 0 auto; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--teal); border: 1px solid rgba(53, 230, 224, .35);
+  border-radius: var(--r-sm); padding: 0 4px; line-height: 1.5;
+}
+.style {
+  font-size: var(--fs-sm); color: var(--teal); line-height: var(--lh-tight);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.style--dim { color: var(--dimmer); font-style: italic; }
+.acts { display: flex; align-items: center; gap: 0; flex: 0 0 auto; }
+
+.rowlist-sentinel { height: 1px; }
+.liststatus {
+  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+  color: var(--dim); font-size: var(--fs-sm); text-align: center;
+}
+/* An empty list is one sentence on a whole screen, so it gets the display face
+   and a measure to break on — the markup is a bare <p>, so all of the
+   structure it can have has to come from here. */
+.empty {
+  padding: clamp(2rem, 12dvh, 5rem) var(--sp-5) var(--sp-6);
+  text-align: center; color: var(--dim);
+  font-family: var(--font-display); font-size: var(--fs-2xl);
+  line-height: 1.12; max-width: 30ch; margin: 0 auto;
+}
+
+/* grid view (opt-in, persisted): a wall of vinyl, not a wall of cards. The
+   covers are already circular, so the card chrome was drawing a box around a
+   disc — dropping the border, padding and background leaves the art. */
+.rowlist--grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-4) var(--sp-3); padding: var(--sp-4) var(--sp-3);
+}
+.rowlist--grid .row {
+  height: auto; flex-direction: column; align-items: stretch;
+  border: 0; border-radius: var(--r-lg); padding: 0; background: none;
+}
+.rowlist--grid .thumb { width: 100%; height: auto; aspect-ratio: 1; min-width: 0; border-radius: 50%; }
+.rowlist--grid .acts { justify-content: flex-end; }
+/* .thumb is overflow:hidden, so a 50% radius clips .dur clean off the
+   bottom-right corner. Re-centre it — grid only; the 56px row still has a
+   corner to use. */
+.rowlist--grid .dur { right: auto; left: 50%; transform: translateX(-50%); bottom: 7%; }
+/* The playing marker moves from the row's leading edge onto the disc itself:
+   a rounded card had an edge to mark, a floating circle does not. */
+.rowlist--grid .row--playing::after { display: none; }
+/* The unplayed dot is a child of .row, not .thumb, and its list geometry
+   (left 3px, top 50%) is relative to the ROW. A grid tile is a ~273px column
+   card, so 50% dropped the dot into the gutter below the disc, ~7px outside
+   the rim. Put it on the record instead. A fixed top beats a percentage here:
+   the tile grows when a title wraps to two lines, the disc does not. */
+.rowlist--grid .row-new {
+  top: 10px; left: 50%; margin-top: 0; transform: translateX(-50%);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.rowlist--grid .row--playing .thumb { box-shadow: 0 0 0 2px var(--amber), 0 0 24px var(--amber-glow); }
+/* "Nothing matches that filter." is a grid item like any other, so it would
+   otherwise wrap 28px serif inside one 165px column. */
+.rowlist--grid .empty { grid-column: 1 / -1; }
+/* Dragging the disc dismisses the now-playing view, so the art must not be
+   draggable ITSELF: a mouse drag fires pointercancel one move in when the
+   browser starts a native image drag, and on iOS a long-press raises the Save
+   Image sheet on top of the gesture. */
+.now-art, .now-art img, .thumb img {
+  -webkit-user-drag: none; -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+}
+
+
+/* ── dock ──────────────────────────────────────────────────────────────── */
+.dock {
+  height: var(--dock-h);
+  background: var(--surface); border-top: 1px solid var(--line);
+  position: relative; min-width: 0;
+}
+.dock-seek {
+  position: absolute; top: 0; left: 0; right: 0; height: 12px;
+  touch-action: none; display: flex; align-items: center;
+  padding: 0 var(--sp-1);
+}
+.dock-rail { height: 3px; width: 100%; background: var(--line); border-radius: 2px; overflow: hidden; }
+.dock-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--amber-lo), var(--amber-hi)); }
+.dock-body {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 12px var(--sp-2) 4px var(--sp-3);
+  height: 100%; min-width: 0;
+}
+.dock-art {
+  width: 48px; height: 48px; min-width: 48px; min-height: 48px;
+  flex: 0 0 auto; padding: 0;
+  border-radius: 8px; overflow: hidden; background: var(--surface-2);
+}
+.dock-art img { width: 100%; height: 100%; object-fit: cover; }
+.dock-meta {
+  flex: 1 1 auto; min-width: 0; min-height: 48px;
+  display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center; gap: 2px; text-align: left; padding: 0 var(--sp-1);
+}
+.dock-title {
+  font-size: var(--fs-md); font-weight: 600; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dock-sub {
+  font-size: var(--fs-sm); color: var(--dim); max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dock-btn { width: var(--tap); height: var(--tap); min-width: var(--tap); flex: 0 0 auto; padding: 0; }
+.dock-btn svg { width: 24px; height: 24px; }
+/* prev / shuffle / repeat / volume: 390px cannot hold them, so they live in
+   the expanded player on a phone and return to the bar on a desktop. */
+.dock-x, .dock-btn--wide { display: none; }
+.dock-btn { color: var(--dim); }
+.dock-btn#dock-play, .dock-btn#dock-next { color: var(--text); }
+.dock-btn--on { color: var(--amber); }
+
+body.now-open .dock { opacity: 0; pointer-events: none; }
+.dock { transition: opacity var(--t-base) var(--ease); }
+
+/* ── now playing ───────────────────────────────────────────────────────── */
+/* #1e1b33 is RAMP stop 0.20 from art.py:74 — the stage is lit by the same ramp
+   that draws the discs, so the art sits in its own light instead of on a flat
+   grey. Measured, --dim #8B85B8 on #1e1b33 is 4.88:1, clear of AA. */
+.now {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; grid-template-rows: auto 1fr auto;
+  background: radial-gradient(120% 80% at 50% 22%, #1e1b33 0%, var(--void) 62%), var(--bg);
+  padding-top: var(--inset-t);
+  transform: translateY(100%); visibility: hidden;
+  transition: transform var(--t-slow) var(--ease), visibility 0s var(--t-slow);
+}
+.now.is-open {
+  transform: none; visibility: visible;
+  transition: transform var(--t-slow) var(--ease);
+}
+.now-head {
+  height: 56px; display: flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-2); touch-action: none;
+}
+.now-eyebrow {
+  flex: 1 1 auto; text-align: center;
+  font-size: var(--fs-xs); letter-spacing: .12em; color: var(--amber);
+}
+.now-body {
+  overflow-y: auto; overscroll-behavior: contain;
+  /* The art is a rotating SQUARE box with round corners hidden. Its bounding
+     box grows to 1.41x at 45deg, which measured 20px of scrollable overflow at
+     390px and 31px on the desktop pane — a sideways nudge on a screen that must
+     never move sideways. Clipping x costs nothing: the bloom stops ~20px out
+     and the padding box is 43px clear of the disc. */
+  overflow-x: hidden;
+  padding: 0 var(--sp-5); text-align: center; min-width: 0;
+  /* `safe` so a short screen scrolls the artwork instead of clipping the top */
+  display: grid; align-content: safe center;
+}
+/* The cover IS a record, so here it is round and it turns. The old --sh-art was
+   a black shadow on a near-black ground — dead CSS, which is why the art never
+   looked lit; this is a hairline of the live accent, a soft bloom above it, and
+   the drop underneath.
+   26s/rev is 2.3 rpm: present at the edge of vision, not a fidget spinner.
+   #now-art is also the drag-to-dismiss handle (player.js:71) — a circle turning
+   about its own centre has an unchanged hit region, so the swipe is unaffected;
+   dragToDismiss writes transform on the panel, not on this node. */
+.now-art {
+  width: min(78vw, 44dvh, 340px); aspect-ratio: 1;
+  margin: var(--sp-2) auto var(--sp-5);
+  border-radius: 50%; overflow: hidden;
+  background: var(--disc);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), .14),
+              0 0 60px -10px rgba(var(--accent-rgb), .10),
+              0 26px 50px -24px #000;
+  touch-action: none;
+  /* play-state rather than toggling the animation itself: pausing an animation
+     leaves the disc WHERE IT WAS, where removing it snaps back to 0deg. */
+  animation: xw-spin 26s linear infinite;
+  animation-play-state: paused;
+}
+body.is-playing .now-art { animation-play-state: running; }
+@keyframes xw-spin { to { transform: rotate(360deg); } }
+.now-art img { width: 100%; height: 100%; object-fit: cover; }
+.now-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 7.5vw, 2.5rem);
+  font-weight: 700; line-height: 1.08; letter-spacing: -.01em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
+/* The desktop detail pane reuses .now-title (library.js:798), but it is a
+   narrow sidebar, not the theatrical now-playing hero -- 2.5rem there is
+   the hero treatment leaking into a column a third the width. */
+.side .now-title { font-size: clamp(1.25rem, 2vw, 1.55rem); letter-spacing: 0; }
+.now-style { font-size: var(--fs-base); color: var(--teal); margin-top: var(--sp-2); overflow-wrap: anywhere; }
+.now-meta  { font-size: var(--fs-sm); color: var(--dim); margin-top: var(--sp-1); }
+.now-seek  { height: var(--tap); display: flex; align-items: center; margin-top: var(--sp-2); }
+.now-times {
+  display: flex; justify-content: space-between;
+  font-size: var(--fs-xs); color: var(--dim);
+  font-variant-numeric: tabular-nums; padding-bottom: var(--sp-3);
+}
+.now-foot { padding: 0 var(--sp-4) calc(var(--sp-3) + var(--inset-b)); }
+.now-transport {
+  height: 72px; display: flex; align-items: center; justify-content: space-between;
+}
+.now-t--md { width: 56px; min-width: 56px; }
+.now-t--md svg { width: 28px; height: 28px; }
+.now-play {
+  width: 64px; height: 64px; min-width: 64px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--amber-hi), var(--amber-lo));
+  box-shadow: 0 0 28px -6px rgba(var(--accent-rgb), .35);
+  color: var(--void); padding: 0; flex: 0 0 auto;
+}
+.now-play svg { width: 30px; height: 30px; }
+.now-actions { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+
+/* `transition-delay: 0s` is not optional: .now's `visibility 0s .28s` is a
+   DELAY, not a duration, so a duration-only guard left the view sitting there
+   for 280ms after it had been dismissed. The blanket rule is safe here because
+   nothing in this codebase waits on transitionend — teardownSheet uses
+   setTimeout(260) at ui.js:198. Anything that starts listening for
+   transitionend needs an explicit exception added below. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── sheets ────────────────────────────────────────────────────────────── */
+.scrim {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(0,0,0,.55); opacity: 0; transition: opacity var(--t-base) var(--ease);
+}
+.scrim.is-open { opacity: 1; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+  max-height: 88dvh; display: flex; flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  box-shadow: var(--sh-sheet);
+  transform: translateY(100%); transition: transform var(--t-slow) var(--ease);
+  padding-bottom: calc(var(--sp-3) + var(--inset-b));
+}
+.sheet.is-open { transform: none; }
+.sheet-grab { padding: var(--sp-2) 0 var(--sp-1); display: flex; justify-content: center; touch-action: none; }
+.sheet-grab span { width: 40px; height: 4px; border-radius: 2px; background: var(--surface-3); }
+.sheet-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-2) 0 var(--sp-4); min-height: var(--tap);
+}
+.sheet-title {
+  flex: 1 1 auto; min-width: 0; font-family: var(--font-display);
+  font-size: var(--fs-lg); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sheet-body {
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--sp-2) var(--sp-4) var(--sp-4); min-width: 0;
+}
+
+.menu { display: flex; flex-direction: column; margin: 0 calc(var(--sp-4) * -1); }
+.menu-item {
+  min-height: 52px; padding: 0 var(--sp-4); gap: var(--sp-3);
+  justify-content: flex-start; width: 100%; font-size: var(--fs-md);
+  border-radius: 0;
+}
+.menu-item svg { width: 20px; height: 20px; color: var(--dim); flex: 0 0 auto; }
+.menu-item:active { background: var(--surface-2); }
+.menu-item--danger { color: var(--red); }
+.menu-sep { height: 1px; background: var(--line); margin: var(--sp-2) 0; }
+
+/* ── toasts ────────────────────────────────────────────────────────────── */
+.toasts {
+  position: fixed; z-index: 90; left: var(--sp-3); right: var(--sp-3);
+  bottom: calc(var(--tabbar-h) + var(--dock-h) + var(--inset-b) + var(--sp-2));
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  pointer-events: none;
+}
+.toast {
+  background: var(--surface-3); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4); font-size: var(--fs-base);
+  box-shadow: 0 6px 24px rgba(0,0,0,.5); overflow-wrap: anywhere;
+}
+.toast--err { border-color: var(--red); color: var(--red); }
+
+/* ── forms ─────────────────────────────────────────────────────────────── */
+.formcol { padding: var(--sp-4) var(--sp-4) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
+.field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.flabel { font-size: var(--fs-base); font-weight: 600; color: var(--text); display: flex; justify-content: space-between; gap: var(--sp-2); }
+.flabel output { color: var(--amber); font-variant-numeric: tabular-nums; font-weight: 700; }
+.fhint { font-size: var(--fs-sm); color: var(--dim); line-height: var(--lh-base); overflow-wrap: anywhere; }
+.fhint--warn { color: var(--amber); }
+.fhint--ok { color: var(--teal); }
+
+input[type=text], input[type=number], input[type=search], textarea, select {
+  width: 100%; min-width: 0;
+  font-family: var(--font);
+  font-size: var(--fs-input);        /* 16px — never smaller (iOS zoom) */
+  color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  padding: var(--sp-3); min-height: var(--tap);
+}
+textarea { resize: vertical; line-height: var(--lh-base); font-family: var(--mono); font-size: var(--fs-input); }
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%),
+                    linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px, 6px 6px; background-repeat: no-repeat;
+  padding-right: var(--sp-6);
+}
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: var(--tap); background: none; margin: 0;
+}
+input[type=range]::-webkit-slider-runnable-track { height: 4px; background: var(--surface-3); border-radius: 2px; }
+/* Split, not a selector list: one unknown prefix invalidates the whole list,
+   so webkit and moz each get the highlight-and-drop treatment on their own. */
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px;
+  border-radius: 50%; border: 0;
+  background: radial-gradient(circle at 50% 35%, var(--amber-hi), var(--amber-lo));
+  box-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+input[type=range]::-moz-range-track { height: 4px; background: var(--surface-3); border-radius: 2px; }
+input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px; border: 0; border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, var(--amber-hi), var(--amber-lo));
+  box-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+
+.check {
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: var(--tap); font-size: var(--fs-base); cursor: pointer;
+}
+.check input { width: 24px; height: 24px; accent-color: var(--amber); flex: 0 0 auto; }
+.check em { color: var(--dim); font-style: normal; font-size: var(--fs-sm); }
+.btnrow { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.btnrow .btn { flex: 1 1 auto; }
+.grid2 { display: grid; grid-template-columns: 1fr; gap: var(--sp-5); }
+.filebtn { position: relative; overflow: hidden; }
+.filebtn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.disclose { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.disclose > summary {
+  list-style: none; min-height: var(--tap);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--sp-4); font-size: var(--fs-md); font-weight: 600; cursor: pointer;
+}
+.disclose > summary::-webkit-details-marker { display: none; }
+.disclose[open] > summary .chevron { transform: rotate(180deg); }
+.chevron { display: flex; color: var(--dim); transition: transform var(--t-fast) var(--ease); }
+.chevron svg { width: 18px; height: 18px; }
+/* box-sizing repeated on purpose: it re-roots the inherit chain for the panel
+   contents on any engine that wraps details content in a pseudo-element. */
+.disclose-body { box-sizing: border-box; padding: var(--sp-2) var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+
+/* A plain bordered box for controls that are revealed rather than disclosed —
+   the cover fields, which are already gated by the mode switch above them. */
+.panel {
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  background: var(--surface); padding: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0;
+}
+
+/* ── cover mode banner (§7) — unmistakable while it is on ──────────────── */
+.coverban {
+  display: flex; align-items: center; gap: var(--sp-3); min-width: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--amber-dim); border-left: 3px solid var(--amber);
+  border-radius: var(--r-lg);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), .14), rgba(var(--accent-rgb), .03));
+}
+.coverban-art {
+  width: 48px; height: 48px; flex: 0 0 auto;
+  border-radius: var(--r-md); overflow: hidden;
+  background: var(--surface-3); color: var(--dim);
+  display: grid; place-items: center;
+}
+.coverban-art img { width: 100%; height: 100%; object-fit: cover; }
+.coverban-ph svg { width: 22px; height: 22px; }
+/* min-width:0 is what lets the title ellipsis instead of pushing the ✕ off a
+   390px screen. */
+.coverban-txt { flex: 1 1 auto; min-width: 0; }
+.coverban-k {
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--amber);
+}
+.coverban-t {
+  font-size: var(--fs-md); font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.coverban-why { font-size: var(--fs-sm); color: var(--dim); line-height: var(--lh-base); }
+.coverban-x { color: var(--amber); }
+
+/* ── the Advanced quality panel (§6) ───────────────────────────────────── */
+.qcustom { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.costs {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  font-size: var(--fs-sm); color: var(--dim); line-height: var(--lh-base);
+}
+.costs li { overflow-wrap: anywhere; }
+.costs b { color: var(--text); font-weight: 600; }
+
+.region { border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-3); margin: 0; }
+.region legend { padding: 0 var(--sp-2); font-size: var(--fs-base); font-weight: 600; color: var(--dim); }
+.region-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.nudge { display: flex; align-items: center; gap: var(--sp-1); }
+.nudge input { text-align: center; }
+.nudge .iconbtn { background: var(--surface-2); border: 1px solid var(--line); }
+
+/* ── the action bar (sticky, above the keyboard) ───────────────────────── */
+.actionbar {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; gap: var(--sp-2); padding: var(--sp-3);
+  background: linear-gradient(to top, var(--bg) 62%, transparent);
+}
+.actionbar .btn { flex: 1 1 auto; height: 52px; }
+
+body.is-typing .dock, body.is-typing .tabbar { display: none; }
+
+/* ── side column content (log, results, spectrogram, detail) ───────────── */
+.side { padding: 0 var(--sp-4) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.homeslot { min-width: 0; }
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: var(--sp-3); min-width: 0;
+}
+.card-h { font-size: var(--fs-base); font-weight: 600; color: var(--dim); margin-bottom: var(--sp-2); }
+
+.prog { display: flex; flex-direction: column; gap: var(--sp-2); }
+.prog-line { font-size: var(--fs-sm); color: var(--text); overflow-wrap: anywhere; }
+.prog-bar { height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.prog-fill {
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--amber-lo), var(--amber-hi));
+  transition: width var(--t-base) var(--ease);
+}
+.prog-eta { font-size: var(--fs-xs); color: var(--dim); font-variant-numeric: tabular-nums; }
+
+.log {
+  font-family: var(--mono); font-size: var(--fs-sm); line-height: 1.5;
+  white-space: pre; overflow-x: auto; overflow-y: auto;
+  max-height: 40dvh; color: var(--dim);
+  background: var(--ink); border-radius: var(--r-md); padding: var(--sp-2);
+}
+.speccard { padding: 0; overflow: hidden; }
+.specwrap { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.specwrap img { min-width: 640px; width: 100%; cursor: crosshair; }
+
+.detail-art {
+  width: 100%; max-width: 260px; aspect-ratio: 1; margin: 0 auto var(--sp-3);
+  border-radius: 50%; overflow: hidden; background: var(--disc);
+}
+.detail-art img { width: 100%; height: 100%; object-fit: cover; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.kv dt { color: var(--dim); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+pre.record {
+  font-family: var(--mono); font-size: var(--fs-sm); white-space: pre-wrap;
+  overflow-wrap: anywhere; color: var(--dim); margin: 0; max-height: 40dvh; overflow-y: auto;
+}
+.note { font-size: var(--fs-sm); color: var(--dim); overflow-wrap: anywhere; }
+.note--warn { color: var(--amber); }
+
+/* one live job inside the GPU sheet: description left, Cancel right */
+.gpu-job { display: flex; align-items: center; gap: var(--sp-3); }
+.gpu-job .btn { flex: 0 0 auto; }
+
+/* ── tab bar ───────────────────────────────────────────────────────────── */
+.tabbar {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  height: calc(var(--tabbar-h) + var(--inset-b));
+  padding-bottom: var(--inset-b);
+  background: var(--surface); border-top: 1px solid var(--line);
+}
+.tab {
+  flex-direction: column; gap: 3px; min-height: var(--tap);
+  color: var(--dim); border-radius: 0;
+}
+.tab svg { width: 22px; height: 22px; }
+.tab-l { font-size: var(--fs-xs); letter-spacing: .2px; }
+.tab--on { color: var(--amber); }
+.tab:active { transform: none; background: var(--surface-2); }
+
+/* ============================================================================
+   DESKTOP — the enhancement, not the default.
+   ========================================================================== */
+@media (min-width: 900px) {
+  /* The desktop dock is taller, and `.now` / `.toasts` are positioned off this
+     token — leaving it at 64 would slide both under the dock's top edge. */
+  :root { --dock-h: 76px; }
+
+  .app {
+    grid-template-columns: 76px 420px 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "rail appbar appbar"
+      "rail chips  detail"
+      "rail list   detail"
+      "dock dock   dock";
+  }
+  .tabbar { display: none; }
+
+  .rail {
+    grid-area: rail; display: flex; flex-direction: column;
+    align-items: stretch; gap: var(--sp-1);
+    padding: calc(var(--inset-t) + var(--sp-3)) var(--sp-1) var(--sp-3);
+    background: var(--surface); border-right: 1px solid var(--line);
+  }
+  .rail .tab { height: 64px; border-radius: var(--r-md); }
+  .rail .tab svg { width: 24px; height: 24px; }
+  .rail .tab--on { background: rgba(var(--accent-rgb), .10); }
+
+  .main { grid-area: list; border-right: 1px solid var(--line); }
+  .detail {
+    grid-area: detail; display: block;
+    overflow-y: auto; overscroll-behavior: contain; min-width: 0;
+    padding-top: var(--sp-4);
+  }
+  .detailslot { min-width: 0; }
+
+  .appbar { padding-left: var(--sp-5); }
+  /* search is permanent chrome when there is room */
+  .searchfield { max-width: 420px; }
+
+  .dock { height: var(--dock-h); }
+  .dock-body { padding: var(--sp-2) var(--sp-4); gap: var(--sp-2); }
+  .dock-seek { position: static; height: 20px; padding: 0; }
+  .dock-x { display: flex; align-items: center; gap: var(--sp-3); flex: 1 1 auto; min-width: 0; }
+  .dock-x .dock-seek { flex: 1 1 auto; }
+  .dock-time { font-size: var(--fs-xs); color: var(--dim); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .dock-btn--wide { display: inline-flex; }
+  .dock-btn--wide.dock-vol { align-items: center; width: auto; min-width: 0; }
+  .dock-vol input[type=range] { width: 96px; height: var(--tap); }
+  .dock-meta { flex: 0 0 240px; max-width: 240px; }
+  .dock-art { width: 56px; height: 56px; min-width: 56px; min-height: 56px; }
+
+  .now {
+    inset: 0 0 var(--dock-h) auto; width: 420px;
+    border-left: 1px solid var(--line);
+    border-radius: var(--r-xl) 0 0 0;
+    transform: translateX(100%);
+  }
+  .now.is-open { transform: none; }
+  body.now-open .dock { opacity: 1; pointer-events: auto; }
+
+  .sheet { left: auto; right: var(--sp-5); bottom: var(--sp-5); width: 420px; border-radius: var(--r-xl); }
+  .toasts { left: auto; right: var(--sp-5); width: 380px; bottom: calc(var(--dock-h) + var(--sp-4)); }
+
+  .formcol { padding: var(--sp-4); }
+  .grid2 { grid-template-columns: 1fr 1fr; }
+  /* auto-fill, not repeat(2): a fixed count here silently reverted the phone's
+     new column rule the moment the layout crossed 900px. */
+  .rowlist--grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .actionbar { padding: var(--sp-3) var(--sp-4); }
+  .specwrap img { min-width: 0; }
+  .log { max-height: 46dvh; }
+}
+
+@media (min-width: 1300px) {
+  .app { grid-template-columns: 76px 460px 1fr; }
+  .detail { padding: var(--sp-4) var(--sp-5); }
+}
+
+/* ============================================================================
+   DESIGN SYSTEM
+   The structural language, applied last so it wins on source order without
+   editing eight hundred lines above it. Three recurring devices:
+
+     1. the MICRO-LABEL  mono, uppercase, widely tracked, accent-coloured,
+                         trailed by a rule that fades out. Names a region.
+     2. the VIEWFINDER   four corner marks that grow on hover/focus. Frames a
+                         panel without drawing a box around it.
+     3. the HAIRLINE     1px --rule everywhere a card used to be. Structure
+                         comes from division, not from fills and shadows.
+
+   Nothing here is decorative: each accent has a job (see :root), squares are
+   square so the brackets read, and every measured number is set in the mono.
+   ========================================================================== */
+
+/* ── 1. micro-labels ─────────────────────────────────────────────────────── */
+.eyebrow,
+.now-eyebrow,
+.card-h,
+.wsbar-k,
+.tab-l,
+.thead,
+.spec,
+.chip > span,
+.telem {
+  font-family: var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  font-weight: 500;
+}
+
+.eyebrow, .now-eyebrow, .card-h {
+  display: flex; align-items: center; gap: 12px;
+  font-size: var(--fs-xs); color: var(--accent-txt);
+  margin: 0 0 var(--sp-3);
+}
+/* The rule that trails a label is the reference design's signature. It has to
+   be a flex child rather than a border, so it takes exactly the width the text
+   leaves and fades rather than stopping. */
+.eyebrow::after, .now-eyebrow::after, .card-h::after {
+  content: ""; flex: 1; height: 1px; opacity: .45;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+
+/* ── 2. viewfinder brackets ──────────────────────────────────────────────── */
+.bracket { position: relative; }
+.bracket::before, .bracket::after {
+  content: ""; position: absolute; width: 13px; height: 13px;
+  border: 1px solid var(--rule); pointer-events: none;
+  transition: width var(--t-slow) var(--ease),
+              height var(--t-slow) var(--ease),
+              border-color var(--t-slow) var(--ease);
+}
+.bracket::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.bracket::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.bracket:hover::before, .bracket:hover::after,
+.bracket:focus-within::before, .bracket:focus-within::after {
+  width: 26px; height: 26px; border-color: var(--accent);
+}
+
+/* ── 3. hairline structure ───────────────────────────────────────────────── */
+.card, .panel {
+  background: rgba(14, 12, 28, .66);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+}
+.card { padding: var(--sp-4); }
+
+/* ── typography ──────────────────────────────────────────────────────────── */
+body { font-family: var(--f-body); }
+.appbar-title, .now-title, .name, .title, h1, h2, h3 {
+  font-family: var(--f-display);
+  letter-spacing: -.01em;
+}
+.appbar-title {
+  font-size: var(--fs-lg); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .18em;
+}
+/* Every measured number is mono, so a column of them lines up and a changing
+   value does not reflow the row it sits in. */
+.dur, .now-times, .row-meta, .gpu-chip, .telem, .record, .fhint code {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  font-family: var(--f-mono);
+  font-size: var(--fs-sm); font-weight: 500;
+  text-transform: uppercase; letter-spacing: .14em;
+  border: 1px solid var(--rule);
+  background: rgba(14, 12, 28, .55);
+  border-radius: 0;
+  transition: border-color var(--t-base) var(--ease),
+              color var(--t-base) var(--ease),
+              background var(--t-base) var(--ease);
+}
+/* Flat, not a gradient. A dark label on violet measures 4.61:1 at full
+   strength but only 3.10:1 against the darker stop a gradient would introduce,
+   so the gradient is what fails AA here -- the fill is what passes. */
+.btn--primary {
+  background: var(--accent); color: var(--void);
+  border-color: var(--accent); box-shadow: none;
+  font-weight: 600;
+}
+.btn--ghost { background: transparent; }
+.btn--danger { color: var(--red); border-color: rgba(255, 92, 122, .4); }
+.iconbtn { border-radius: 0; }
+.iconbtn--on { color: var(--accent-txt); }
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { background: rgba(22, 18, 46, .82); border-color: var(--accent); color: var(--text); }
+  .btn--primary:hover { background: var(--accent-hi); border-color: var(--accent-hi); color: var(--void); }
+  .iconbtn:hover { color: var(--text); background: rgba(var(--accent-rgb), .10); }
+}
+
+/* ── chips ───────────────────────────────────────────────────────────────── */
+.chip > span {
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--fs-xs); font-weight: 500;
+  color: var(--muted);
+}
+.chip--on > span {
+  background: rgba(var(--accent-rgb), .12);
+  border-color: var(--accent); color: var(--accent-txt);
+}
+/* A select is an editable field: under 16px iOS zooms the whole page when it
+   opens the picker, and the page never zooms back. So the FIELD holds 16px and
+   the box gets narrower instead -- at the old 168px cap plus a fully tracked
+   "WORKSPACE", the picker ate 266px of a 390px chip row and pushed every
+   filter off screen. The label carries the tracking down, not the field. */
+.wsbar select {
+  border-radius: 0; font-family: var(--f-mono); font-size: var(--fs-input);
+  min-width: 96px; max-width: 118px; padding: 0 var(--sp-1);
+}
+.wsbar-k { font-size: var(--fs-xs); letter-spacing: .08em; }
+.wsbar { gap: var(--sp-1); padding-right: var(--sp-1); }
+.wsbar select.wsbar--on { border-color: var(--accent); color: var(--accent-txt); }
+
+/* ── rows: a catalog, not a stack of cards ───────────────────────────────── */
+.row {
+  border-bottom: 1px solid var(--rule);
+  transition: padding-left var(--t-slow) var(--ease),
+              background var(--t-base) var(--ease);
+}
+/* The accent bar scales in from the middle rather than sliding, and the row
+   shifts right to meet it -- the reference design's one piece of motion that
+   is not a fade. */
+.row::after {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--accent); transform: scaleY(0); transform-origin: 50% 50%;
+  transition: transform var(--t-slow) var(--ease);
+}
+.row--playing { background: rgba(var(--accent-rgb), .07); }
+.row--playing::after { transform: scaleY(1); }
+@media (hover: hover) and (pointer: fine) {
+  .row:hover { padding-left: 12px; background: rgba(var(--accent-rgb), .05); }
+  .row:hover::after { transform: scaleY(1); }
+}
+.title { font-weight: 600; }
+.style, .row-meta { color: var(--muted); }
+/* The art is a record: square chrome, round records. */
+.thumb { border-radius: 50%; background: var(--disc); }
+
+/* ── forms ───────────────────────────────────────────────────────────────── */
+input, select, textarea {
+  border-radius: 0;
+  background: rgba(7, 6, 14, .7);
+  border: 1px solid var(--rule);
+  transition: border-color var(--t-base) var(--ease);
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+label, .fhint {
+  font-family: var(--f-mono);
+  font-size: var(--fs-xs); letter-spacing: .1em;
+  color: var(--muted);
+}
+label { text-transform: uppercase; letter-spacing: var(--ls-label); }
+/* A checkbox label is a SENTENCE, not a field name -- "Cover an existing
+   track" set in tracked uppercase mono is a headline nobody can skim. Field
+   labels keep the treatment; these read as prose. */
+.check, .check span {
+  font-family: var(--f-body); text-transform: none;
+  letter-spacing: 0; font-size: var(--fs-base); color: var(--text);
+}
+.check em { color: var(--muted); }
+
+/* ── tab bar / rail ──────────────────────────────────────────────────────── */
+.tabbar { background: rgba(7, 6, 14, .82); border-top: 1px solid var(--rule); }
+.tab-l { font-size: var(--fs-xs); letter-spacing: .16em; }
+.tab--on { color: var(--accent-txt); }
+/* The active tab is marked by a rule at the top edge, matching the row bar. */
+.tab { position: relative; }
+.tab--on::before {
+  content: ""; position: absolute; top: 0; left: 22%; right: 22%; height: 2px;
+  background: var(--accent);
+}
+
+/* ── app bar ─────────────────────────────────────────────────────────────── */
+.appbar {
+  background: rgba(7, 6, 14, .72);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border-bottom: 1px solid var(--rule);
+}
+.gpu-chip {
+  border-radius: 0; border: 1px solid var(--rule);
+  font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase;
+}
+
+/* ── sheets ──────────────────────────────────────────────────────────────── */
+.sheet { border-radius: 0; border-top: 1px solid var(--rule); background: var(--ink); }
+.sheet-title {
+  font-family: var(--f-mono); font-size: var(--fs-xs);
+  text-transform: uppercase; letter-spacing: var(--ls-label);
+  color: var(--accent-txt);
+}
+
+/* ── motion ──────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .bracket::before, .bracket::after, .row, .row::after { transition: none; }
+}
+
+/* ── Create: capability groups ───────────────────────────────────────────
+   The form changes shape with the workflow, so related controls have to sit
+   together and irrelevant ones have to leave rather than grey out: a disabled
+   control still costs a line of screen and a moment's reading. Checkpoint and
+   adapter are one group because they are one decision -- which weights run.
+
+   A group whose every child is hidden hides itself (create.js), or its label
+   floats over nothing. */
+.cgroup {
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--rule);
+}
+.cgroup:first-of-type { border-top: 0; padding-top: 0; }
+.cgroup > .eyebrow { margin-bottom: 0; }
+/* The mode switch is a mode, not a setting: it decides what the rest of the
+   form means, so it reads as a bar rather than another checkbox in a list. */
+#cg-mode .check {
+  border: 1px solid var(--rule); padding: var(--sp-3);
+  background: rgba(var(--accent-rgb), .04);
+}
+#cg-mode .check:has(:checked) {
+  border-color: var(--accent); background: rgba(var(--accent-rgb), .10);
+}
+/* Cover is a live mode, so its group is marked while it is on. */
+#cg-cover { border-left: 2px solid var(--accent); padding-left: var(--sp-3); }

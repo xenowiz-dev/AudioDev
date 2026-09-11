@@ -1,0 +1,47 @@
+# ---- environments: install.ps1 -Stage venvs rebuilds them from install/requirements
+.venv/
+.venv-*/
+__pycache__/
+*.pyc
+.cache/
+
+# ---- upstream repos: install.ps1 -Stage clones re-creates them at the pinned commits
+acestep/ACE-Step-1.5/
+msst/MSST/
+flashsr/FlashSR_Inference/
+watermark/ai-music-detector/
+
+# ---- model weights: install.ps1 -Stage models
+acestep/checkpoints/
+minimax/hf/
+msst/checkpoints/*
+!msst/checkpoints/config_apollo_universal.yaml
+
+# ---- the library, adapters and training artefacts: NOT reproducible, copy by hand
+Music/
+loras/
+train/lora_out/
+train/preprocessed/
+train/logs/
+train/dataset.json
+train/dataset_report.txt
+train/labels.json.pre-octave
+testaudio/
+
+# ---- forensics research audio (hundreds of MB of wav controls)
+watermark/controls/
+watermark/denoise/
+watermark/warp/
+watermark/vocoder/
+watermark/stems/
+
+# ---- per-machine: this box's tailnet URL and its QR code
+studio/assets/phone_url.txt
+studio/assets/phone_qr.png
+.claude/settings.local.json
+
+# ---- logs and scratch
+*_log.txt
+*_err.txt
+*.log
+web/scratchpad/

@@ -1,0 +1,213 @@
+{
+  "_comment": [
+    "What a fresh box needs, and what it costs. Sizes are ON DISK as measured",
+    "here, not the compressed download.",
+    "",
+    "`tier` decides what install.ps1 fetches by default:",
+    "  core      nothing works without it",
+    "  standard  the studio as it is normally used",
+    "  optional  extra models and tools, fetched on request",
+    "",
+    "`min_vram_gb` is the card needed to RUN it, not to download it. The XL",
+    "variants are listed so a bigger machine can take them without editing",
+    "anything -- install.ps1 hides what will not fit unless -All is passed.",
+    "",
+    "Verified against ACE-Step's own gpu_config.py profiling, 2026-08-20."
+  ],
+
+  "models": [
+    {
+      "id": "acestep-core",
+      "repo": "ACE-Step/Ace-Step1.5",
+      "dest": "acestep/checkpoints",
+      "flatten": true,
+      "size_gb": 9.5,
+      "tier": "core",
+      "min_vram_gb": 8,
+      "what": "ACE-Step turbo DiT, VAE, Qwen3 text encoder, 5Hz LM 1.7B",
+      "note": "One repo, four components. The studio cannot start ACE-Step without it."
+    },
+    {
+      "id": "minimax",
+      "repo": "MiniMaxAI/MiniMax-Music3",
+      "dest": "minimax/hf",
+      "hf_cache": true,
+      "size_gb": 54,
+      "tier": "standard",
+      "min_vram_gb": 8,
+      "what": "MiniMax Music 3 - 44.1 kHz stereo, sung lyrics",
+      "note": "The largest single download by far. Skip it with -SkipMiniMax if you only want ACE-Step."
+    },
+    {
+      "id": "acestep-base",
+      "repo": "ACE-Step/acestep-v15-base",
+      "dest": "acestep/checkpoints/acestep-v15-base",
+      "size_gb": 4.5,
+      "tier": "standard",
+      "min_vram_gb": 8,
+      "what": "ACE-Step base DiT (2B)",
+      "note": "The only 2B variant that can CONTINUE a track (`complete`), pull stems (`extract`) and honour guidance_scale. Slower than turbo: CFG plus 32-100 steps against turbo's 8."
+    },
+    {
+      "id": "acestep-turbo-continuous",
+      "repo": "ACE-Step/acestep-v15-turbo-continuous",
+      "dest": "acestep/checkpoints/acestep-v15-turbo-continuous",
+      "size_gb": 4.5,
+      "tier": "optional",
+      "min_vram_gb": 8,
+      "what": "ACE-Step turbo, continuous-latent training (2B)",
+      "note": "Despite the name this is NOT song continuation - it loads with is_turbo=True and a config identical to plain turbo. 'Continuous' in this codebase refers to non-quantized latents. For continuation use acestep-v15-base."
+    },
+    {
+      "id": "whisper",
+      "repo": "Systran/faster-whisper-large-v3",
+      "dest": "minimax/hf",
+      "hf_cache": true,
+      "size_gb": 2.9,
+      "tier": "standard",
+      "min_vram_gb": 4,
+      "what": "Transcription, for pulling lyrics off a track"
+    },
+    {
+      "id": "writer-llm",
+      "repo": "Qwen/Qwen2.5-1.5B-Instruct",
+      "dest": "minimax/hf",
+      "hf_cache": true,
+      "size_gb": 2.9,
+      "tier": "standard",
+      "min_vram_gb": 0,
+      "what": "The lyric/style writer, and the LLM titler",
+      "note": "Runs on CPU when the card is busy; needs no VRAM of its own."
+    },
+    {
+      "id": "demucs",
+      "repo": "adefossez/HTDemucs",
+      "dest": "minimax/hf",
+      "hf_cache": true,
+      "size_gb": 0.1,
+      "tier": "standard",
+      "min_vram_gb": 2,
+      "what": "Vocal separation, used before transcription"
+    },
+    {
+      "id": "apollo-mp3",
+      "repo": "JusperLee/Apollo",
+      "file": "pytorch_model.bin",
+      "dest": "msst/checkpoints/apollo_mp3_jusperlee.bin",
+      "size_gb": 0.07,
+      "tier": "standard",
+      "min_vram_gb": 4,
+      "what": "Apollo MP3 restorer (JusperLee) - the recommended upscaler",
+      "note": "Upstream calls it pytorch_model.bin; apollo.ps1 expects this name."
+    },
+    {
+      "id": "apollo-universal",
+      "repo": "patriotyk/Apollo",
+      "repo_type": "space",
+      "file": "weights/apollo_model_uni.ckpt",
+      "dest": "msst/checkpoints/apollo_universal_sr.ckpt",
+      "size_gb": 0.15,
+      "tier": "standard",
+      "min_vram_gb": 4,
+      "what": "Apollo universal super-resolution (Lew)",
+      "note": "Lew's checkpoint has no HF repo of its own; this Space redistributes it. Its config (config_apollo_universal.yaml) is committed next to it. Same size as the copy this box was built with (147 MB); byte-identity not verified."
+    },
+    {
+      "id": "flashsr-weights",
+      "repo": "jakeoneijk/FlashSR_weights",
+      "repo_type": "dataset",
+      "dest": "flashsr/FlashSR_Inference/ModelWeights",
+      "size_gb": 3.1,
+      "tier": "optional",
+      "min_vram_gb": 6,
+      "what": "FlashSR student LDM, vocoder and VAE",
+      "note": "Lands inside the FlashSR clone, where its loader looks. Run -Stage clones first."
+    },
+    {
+      "id": "audiosr",
+      "repo": "haoheliu/audiosr_basic",
+      "dest": "minimax/hf",
+      "hf_cache": true,
+      "size_gb": 5.8,
+      "tier": "optional",
+      "min_vram_gb": 6,
+      "what": "AudioSR upscaler - most accurate, ~10x slower than Apollo"
+    },
+    {
+      "id": "acestep-xl-turbo",
+      "repo": "ACE-Step/acestep-v15-xl-turbo",
+      "dest": "acestep/checkpoints/acestep-v15-xl-turbo",
+      "size_gb": 20,
+      "tier": "optional",
+      "min_vram_gb": 13,
+      "what": "ACE-Step XL turbo (4B)",
+      "note": "Needs ~11.5 GB of VRAM to run. Hidden on smaller cards."
+    },
+    {
+      "id": "acestep-xl-base",
+      "repo": "ACE-Step/acestep-v15-xl-base",
+      "dest": "acestep/checkpoints/acestep-v15-xl-base",
+      "size_gb": 20,
+      "tier": "optional",
+      "min_vram_gb": 14,
+      "what": "ACE-Step XL base (4B) - XL plus continuation",
+      "note": "Needs ~12 GB. The slowest and largest of the set."
+    },
+    {
+      "id": "acestep-lm-4b",
+      "repo": "ACE-Step/acestep-5Hz-lm-4B",
+      "dest": "acestep/checkpoints/acestep-5Hz-lm-4B",
+      "size_gb": 8,
+      "tier": "optional",
+      "min_vram_gb": 0,
+      "what": "Bigger thinking-mode planner",
+      "note": "Offloaded to CPU between uses, so this is system RAM rather than VRAM."
+    }
+  ],
+
+  "clones": [
+    {"dest": "acestep/ACE-Step-1.5",
+     "url": "https://github.com/ace-step/ACE-Step-1.5.git",
+     "commit": "6d467e4b5081ccb0abf1ec1bf4fdf9051a2d34b0",
+     "what": "ACE-Step 1.5 source: inference, the LoRA trainer, preprocess"},
+    {"dest": "msst/MSST",
+     "url": "https://github.com/ZFTurbo/Music-Source-Separation-Training.git",
+     "commit": "e247dfe4abc1f17c69dff719207fe045dc04413a",
+     "what": "MSST, which runs the Apollo restorer"},
+    {"dest": "flashsr/FlashSR_Inference",
+     "url": "https://github.com/jakeoneijk/FlashSR_Inference.git",
+     "commit": "2292814a7ef74f61a5479c8d96e653d2f90f369d",
+     "what": "FlashSR one-step upscaler"},
+    {"dest": "watermark/ai-music-detector",
+     "url": "https://github.com/lofcz/ai-music-detector.git",
+     "commit": "6ba389e94a179ac90f3eb134b741ef37baa30434",
+     "what": "AI-music detector used by the forensics scripts"}
+  ],
+
+  "venvs": [
+    {"name": "studio",    "python": "3.12", "torch": null,
+     "what": "the web server and every pure-python helper"},
+    {"name": "label",     "python": "3.12", "torch": "cpu", "dir": "train/.venv-label",
+     "what": "beat_this + librosa: bpm/key/meter labelling for the training set (CPU only)"},
+    {"name": "minimax",   "python": "3.12", "torch": "cu128",
+     "what": "MiniMax Music 3, and the writer LLM"},
+    {"name": "acestep",   "python": "3.12", "torch": "cu128",
+     "what": "ACE-Step generation and LoRA training"},
+    {"name": "lyrics",    "python": "3.12", "torch": "cu128",
+     "what": "faster-whisper transcription"},
+    {"name": "watermark", "python": "3.12", "torch": "cpu",
+     "what": "DSP: spectrograms, region fill, naturalize, bandwidth checks"},
+    {"name": "msst",      "python": "3.10", "torch": "cu121",
+     "what": "Apollo upscaler (MSST)"},
+    {"name": "audiosr",   "python": "3.10", "torch": "cu121",
+     "what": "AudioSR upscaler"},
+    {"name": "flashsr",   "python": "3.10", "torch": "cu121",
+     "what": "FlashSR upscaler"}
+  ],
+
+  "torch_index": {
+    "cu128": "https://download.pytorch.org/whl/cu128",
+    "cu121": "https://download.pytorch.org/whl/cu121",
+    "cpu":   "https://download.pytorch.org/whl/cpu"
+  }
+}
