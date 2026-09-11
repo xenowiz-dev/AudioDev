@@ -18,7 +18,7 @@ from build_dataset import (dedup_key, norm_title, parse_sidecar, rank, scan,  # 
                            probe)
 from collections import Counter                                    # noqa: E402
 
-SRC = [r"C:\Users\Kevin\Downloads\Suno Playlist 8-11-2026"]
+SRC = [os.environ.get("SUNO_DIR", r"C:\Users\Kevin\Downloads\Suno Playlist 8-11-2026")]
 
 drops = Counter()
 found = scan(SRC, drops)

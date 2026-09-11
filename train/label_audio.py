@@ -49,7 +49,8 @@ warnings.filterwarnings("ignore")
 
 DATASET = os.path.join(ROOT, "train", "dataset.json")
 OUT = os.path.join(ROOT, "train", "labels.json")
-SIDECAR_DIR = r"C:\Users\Kevin\Downloads\Suno Playlist 8-11-2026"
+# The Suno export folder is per-machine and outside the repo: SUNO_DIR names it.
+SIDECAR_DIR = os.environ.get("SUNO_DIR", r"C:\Users\Kevin\Downloads\Suno Playlist 8-11-2026")
 
 VALID_TIME_SIGNATURES = [2, 3, 4, 6]
 BPM_MIN, BPM_MAX = 30, 300

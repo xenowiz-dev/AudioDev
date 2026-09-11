@@ -43,6 +43,10 @@ copied by hand.
 | `loras/` and `train/lora_out/` — every adapter trained here | **copy by hand**; 400+ GPU-minutes to recreate | ~1 GB |
 | `train/dataset.json`, `train/preprocessed/` | `train\build_dataset.py` regenerates from the Suno folder | 0.9 GB |
 | `train/labels.json` | committed — 40 CPU-minutes of bpm/key/meter labelling, keyed by filename | 86 KB |
+| the Suno export folder (audio + `.txt` sidecars) | **copy by hand**, then set `SUNO_DIR` to it before running `label_audio.py` / `_audit_dedup.py`; `build_dataset.py` takes it as `--src` | ~1 GB |
+
+GitHub access on the new box: `gh auth login` first (the clone URL above is
+SSH), or clone over HTTPS with `https://github.com/xenowiz-dev/AudioDev.git`.
 
 The Apollo *universal* checkpoint is fetched from the Hugging Face Space that
 redistributes Lew's weights; it is the same size as the copy this box was built

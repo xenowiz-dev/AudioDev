@@ -449,6 +449,9 @@ def region_spec(r):
 
 
 def spec_png():
+    # A fresh clone has no Music\studio yet: create the library root before
+    # anything lists it, or the first request on a new box is a 500.
+    os.makedirs(OUTDIR, exist_ok=True)
     os.makedirs(UPDIR, exist_ok=True)
     return os.path.join(UPDIR, f"_spec_{uuid.uuid4().hex[:12]}.png")
 
