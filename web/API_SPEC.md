@@ -557,6 +557,38 @@ The server enforces the same map it publishes — a LoRA sent with MiniMax is
 than against a hard-coded model name. Hiding a control client-side without the
 server refusing it makes the capability map decoration.
 
+### 4c. Availability, and the score (YuE2)
+
+Each backend also carries **`available`** and **`unavailable_reason`**: can it
+be started on this box, now — venv present, weights on disk, card at least
+`vram_gb`. An unavailable backend stays in the list (the client renders it as
+a disabled option carrying the reason); a `POST /api/generate` naming it is
+`400 validation` with the same reason.
+
+Three more gated blocks joined the map: `score` (YuE2 only), and `steps` and
+`duration` (MiniMax and ACE-Step — YuE2 has neither; length follows the lyrics
+and the plan).
+
+```json
+"score": {"applies_to": ["yue2"], "default": "full",
+          "modes": [{"id": "full", "label": "…", "note": "…"},
+                    {"id": "melody", …}, {"id": "off", …}],
+          "max_abc_chars": 65536, "note": "…", "licence": "CC BY-NC 4.0 …"},
+"steps": {"applies_to": ["minimax", "acestep"]},
+"duration": {"applies_to": ["minimax", "acestep"]}
+```
+
+Request fields, YuE2 only (`400` on any other model): `cot` ∈ `full|melody|off`;
+`abc` — an ABC score to sing to, ≤ `max_abc_chars`, refused with `cot=off`;
+`cfg_scale` 0–20; **`plan_only: true`** — stop after the score. A plan-only
+request is a job of kind `plan` whose result is
+`{plan_only: true, score, cot, plan_dir, truncated, elapsed}` and writes nothing
+to the library. A full YuE2 render's result and its library row carry `score`
+(the ABC that was in the forward pass, planned or supplied), `cot`, `plan_dir`
+(YuE2's artefact folder: `score.abc`, `plan.json`, `latent.npy`, `result.json`)
+and `truncated`; `GET /api/library/{id}/reuse` returns `score` and `cot` so a
+track can be re-rendered from its own score.
+
 ---
 
 ## 5. Generate / Preview

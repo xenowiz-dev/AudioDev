@@ -37,7 +37,7 @@ import uuid
 _HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.environ.get("AUDIODEV_ROOT") or os.path.normpath(os.path.join(_HERE, ".."))
 
-OUTDIR = os.path.join(ROOT, "Music", "studio")
+OUTDIR = os.environ.get("STUDIO_OUTDIR") or os.path.join(ROOT, "Music", "studio")
 COVERDIR = os.path.join(OUTDIR, "covers")
 MEDIA_PY = os.path.join(ROOT, "watermark", ".venv", "Scripts", "python.exe")
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)

@@ -113,6 +113,7 @@ export function init(config, h = {}) {
     takes: $('#c-takes'),
     thinking: $('#c-thinking'), lmTemp: $('#c-lmtemp'),
     autoDur: $('#c-autodur'),
+    cot: $('#c-cot'), abc: $('#c-abc'),
   });
 
   // The ceiling is the SERVER's, read from the card. Hardcoding 2 here would
@@ -122,9 +123,19 @@ export function init(config, h = {}) {
 
   fillVariantSelect(cfg.variants);
   fillLoraSelect(cfg.loras?.items || []);
+  fillCotSelect(cfg.score);
 
+  // A backend this box cannot run stays IN the list, disabled, with the
+  // reason on the option: hiding it would hide the reason to buy the bigger
+  // card. `available` is absent on an older server, which means usable.
   for (const [name, b] of Object.entries(cfg.backends)) {
-    F.model.append(el('option', { value: name, text: b.label }));
+    const off = b.available === false;
+    const o = el('option', {
+      value: name,
+      text: b.label + (off ? ` — ${b.unavailable_reason || 'not available here'}` : ''),
+    });
+    if (off) o.disabled = true;
+    F.model.append(o);
   }
   for (const [k, label] of Object.entries(cfg.upscalers)) {
     F.post.append(el('option', { value: k, text: label }));
@@ -155,10 +166,14 @@ export function init(config, h = {}) {
     // missing here reads back undefined however complete the saved blob is.
     // These five were read below and never listed, so they never came back.
     takes: 1, thinking: false, auto_duration: false, lm_temperature: 1,
-    variant: '',
+    variant: '', cot: '', abc: '',
   });
-  const model = cfg.backends[saved.model] ? saved.model : cfg.default_model;
+  const model = usable(saved.model) ? saved.model
+    : usable(cfg.default_model) ? cfg.default_model
+      : (Object.keys(cfg.backends).find(usable) || cfg.default_model);
   F.model.value = model;
+  if (saved.cot && [...F.cot.options].some((o) => o.value === saved.cot)) F.cot.value = saved.cot;
+  F.abc.value = saved.abc || '';
   F.prompt.value = saved.prompt ?? cfg.backends[model].default_prompt;
   F.lyrics.value = saved.lyrics ?? '';
   // The range has min=10, so a blob written by a build that stored the -1 wire
@@ -223,6 +238,11 @@ export function init(config, h = {}) {
   $('#c-adv').addEventListener('toggle', () => { if ($('#c-adv').open) refreshGpuState(); });
 
   F.variant.addEventListener('change', () => { paintVariant(); persist(); });
+
+  F.cot.addEventListener('change', () => { paintScore(); persist(); });
+  F.abc.addEventListener('input', () => { paintScore(); persist(); });
+  $('#c-plan').addEventListener('click', () => go(false, { planOnly: true }));
+  $('#c-abc-clear').addEventListener('click', () => { F.abc.value = ''; paintScore(); persist(); });
 
   $('#c-lora').addEventListener('change', () => {
     // DEFENSIVE ONLY since the field became capability-gated: the select is
@@ -300,8 +320,15 @@ function supports(feature, model) {
   const name = model || F.model.value;
   const caps = cfg.capabilities?.[name];
   if (caps && feature in caps) return !!caps[feature];
+  // Steps and duration were universal before YuE2 (which has neither); a
+  // server that predates the blocks must not hide them from everyone.
+  if (!cfg[feature] && UNIVERSAL.has(feature)) return true;
   return (cfg[feature]?.applies_to || ['acestep']).includes(name);
 }
+const UNIVERSAL = new Set(['steps', 'duration']);
+
+/* Can this backend be started on THIS box. Absent on an older server = yes. */
+const usable = (name) => !!cfg.backends[name] && cfg.backends[name].available !== false;
 
 /* What a feature needs switched on before it means anything. */
 function requiredFor(feature) {
@@ -341,6 +368,7 @@ function persist() {
     takes: Number(F.takes.value),
     thinking: F.thinking.checked, lm_temperature: Number(F.lmTemp.value),
     auto_duration: F.autoDur.checked,
+    cot: F.cot.value, abc: F.abc.value,
     // Remembered so a 24 GB card is not handed a 10 GB compromise on every
     // visit, and so Custom comes back exactly as it was left (§6).
     quality: { ...q },
@@ -396,9 +424,9 @@ function paintCaps() {
   const el0 = $('#c-caps');
   if (!el0) return;
   const LABELS = {
-    variants: 'checkpoints', loras: 'LoRA adapters', thinking: 'thinking mode',
-    takes: 'multiple takes', quality: 'VRAM trade-offs', cover: 'covers',
-    instrumental: 'instrumental',
+    score: 'score planning', variants: 'checkpoints', loras: 'LoRA adapters',
+    thinking: 'thinking mode', takes: 'multiple takes', quality: 'VRAM trade-offs',
+    cover: 'covers', instrumental: 'instrumental',
   };
   const has = [], hasnt = [];
   for (const [k, label] of Object.entries(LABELS)) {
@@ -430,8 +458,57 @@ function applyModelVisibility(name) {
   paintThinking();
   paintTakes();
   paintAutoDur();
+  paintScore();
+  paintSteps();
   paintCaps();
   paintGroups();
+}
+
+/* ── score (YuE2) ──────────────────────────────────────────────────────────
+   YuE2 writes an ABC score before it sings, and that score is text: it can be
+   read, edited and handed back, or pasted from elsewhere to cover it. Steps
+   and duration are the other side of the same fact -- length follows the
+   lyrics and the plan, so those two controls leave with the engines that
+   have them. */
+function fillCotSelect(s) {
+  const modes = s?.modes || [];
+  F.cot.replaceChildren(...modes.map((m) => el('option', { value: m.id, text: m.label })));
+  if (s?.default && modes.some((m) => m.id === s.default)) F.cot.value = s.default;
+}
+
+function paintScore() {
+  const applies = supports('score');
+  $('#c-cot-field').hidden = !applies;
+  $('#c-abc-field').hidden = !applies;
+  if (!applies) return;
+  const s = cfg.score || {};
+  const mode = (s.modes || []).find((m) => m.id === F.cot.value);
+  $('#c-cot-note').textContent = mode?.note || '';
+  const abc = F.abc.value.trim();
+  const off = F.cot.value === 'off';
+  const note = $('#c-abc-note');
+  if (abc && off) {
+    note.textContent = 'A pasted score is ignored with No plan — pick Full plan or Melody only to sing to it.';
+    note.classList.add('fhint--warn');
+  } else {
+    note.textContent = s.note || '';
+    note.classList.remove('fhint--warn');
+  }
+  const max = s.max_abc_chars || 65536;
+  const msg = $('#c-abc-msg');
+  msg.textContent = abc
+    ? `${abc.length.toLocaleString()} characters${abc.length > max ? ` — over the ${max.toLocaleString()} limit` : ''}`
+    : '';
+  msg.classList.toggle('fhint--warn', abc.length > max);
+  // Planning needs a plan mode; the button says so rather than silently
+  // failing on the server.
+  $('#c-plan').disabled = off;
+  $('#c-plan').title = off ? 'Pick Full plan or Melody only first' : '';
+}
+
+function paintSteps() {
+  $('#c-steps-field').hidden = !supports('steps');
+  $('#c-duration-field').hidden = !supports('duration');
 }
 
 const qualityApplies = (name) => !!qual && (qual.applies_to || ['minimax']).includes(name);
@@ -449,6 +526,8 @@ function paintInfo(name) {
   paintTakes();
   paintThinking();
   paintAutoDur();
+  paintScore();
+  paintSteps();
 }
 
 /* ── LoRA (§11) ────────────────────────────────────────────────────────────
@@ -1048,16 +1127,38 @@ function openWriter(target) {
    job (§8), so every read of it is guarded rather than assumed. */
 let lastReq = null;
 
-async function go(preview) {
+async function go(preview, opts = {}) {
   if (busy) { toast('A GPU job is already running.', 'err'); return; }
   const model = F.model.value;
   const b = cfg.backends[model] || {};
+  if (b.available === false) {
+    toast(`${b.label} is not available here — ${b.unavailable_reason || 'pick another engine'}.`, 'err');
+    F.model.focus(); return;
+  }
   const prompt = F.prompt.value.trim();
   const lyrics = F.lyrics.value.trim();
   if (!prompt) { toast('A style description is required.', 'err'); F.prompt.focus(); return; }
   if (b.requires_lyrics && !lyrics && !F.instrumental.checked) {
-    toast('MiniMax Music 3 requires lyrics — it has no instrumental mode. Use ACE-Step for instrumentals.', 'err');
+    toast(`${b.label || 'This engine'} requires lyrics — it has no instrumental mode. Use ACE-Step for instrumentals.`, 'err');
     F.lyrics.focus(); return;
+  }
+  // Score fields ride only with an engine that plans one; the server 400s
+  // them elsewhere, which is right, and the form should never get there.
+  const score = {};
+  if (supports('score', model)) {
+    score.cot = F.cot.value || 'full';
+    const abc = F.abc.value.trim();
+    if (abc && score.cot === 'off') {
+      toast('A pasted score needs Full plan or Melody only — with No plan it would be ignored.', 'err');
+      F.cot.focus(); return;
+    }
+    if (abc) score.abc = abc;
+    if (opts.planOnly) {
+      if (score.cot === 'off') { toast('Plan score only needs a plan mode.', 'err'); F.cot.focus(); return; }
+      score.plan_only = true;
+    }
+  } else if (opts.planOnly) {
+    return;                                  // the button is hidden here anyway
   }
   // Cover mode with no source would quietly become an ordinary generation —
   // the button says "Create cover", so it must either cover or refuse.
@@ -1102,12 +1203,13 @@ async function go(preview) {
     body.lora = F.lora.value;
     body.lora_scale = Number(F.loraScale.value);
   }
+  Object.assign(body, score);
   try {
     setBusy(true);
     lastReq = body;
     const r = await api.postGenerate(body);
     hooks.onJob?.(r.job_id);
-    view.attach(r.job_id, { kind: 'generate' });
+    view.attach(r.job_id, { kind: r.kind || 'generate' });
     hooks.scrollToSide?.();
   } catch (e) {
     setBusy(false);
@@ -1130,7 +1232,34 @@ function firstSeg(s) {
   return t.length > 48 ? `${t.slice(0, 47).trimEnd()}…` : t;
 }
 
+/* The score as a result: shown, and one tap puts it in the editor so the next
+   Generate sings to it. Editing happens in the textarea, not here. */
+function scoreCard(r, heading) {
+  const abc = r.score || '';
+  const lines = abc.split('\n').length;
+  const trunc = r.truncated && Object.values(r.truncated).some(Boolean);
+  return el('div', { class: 'card' },
+    el('p', { class: 'card-h', text: heading }),
+    el('p', { class: 'note', text: `${lines} lines · ${r.cot || 'full'} plan${r.elapsed ? ` · ${Math.round(r.elapsed)}s` : ''}` }),
+    trunc ? el('p', { class: 'note fhint--warn', text: 'Truncated: the plan hit the model’s length limit. Shorter lyrics give it room.' }) : null,
+    el('pre', { class: 'score-pre', text: abc.length > 4000 ? abc.slice(0, 4000) + '\n…' : abc }),
+    el('div', { class: 'btnrow' },
+      el('button', { type: 'button', class: 'btn btn--primary', text: 'Edit this score',
+        onclick: () => {
+          F.abc.value = abc;
+          if (F.cot.value === 'off') F.cot.value = 'full';
+          paintScore(); persist();
+          F.abc.focus();
+          toast('Score loaded into the editor — change it, then Generate.');
+        } })));
+}
+
 async function onResult(r) {
+  if (r.plan_only) {
+    view.results.replaceChildren(scoreCard(r, 'Score planned'));
+    toast('Score ready — edit it, then Generate.');
+    return;
+  }
   // /api/library/{id} answers {entry, detail_md, shared_note}, so the title is
   // one level down — reading it off the top level silently gives undefined.
   // Worth the round trip: r.library_id is os.path.basename(path), and 124 of
@@ -1155,6 +1284,7 @@ async function onResult(r) {
     r.lora_name ? `${r.lora_name}${r.lora_scale != null ? ` at ${r.lora_scale}` : ''}` : null,
     r.thinking ? `thinking, weirdness ${r.lm_temperature ?? 1}` : null,
     r.quality?.preset || null,
+    r.score ? `${r.cot || 'full'} plan${lastReq?.abc ? ' from a supplied score' : ''}` : null,
     lastReq ? `seed ${lastReq.seed}` : null,
   ].filter(Boolean).join(' · ');
 
@@ -1195,7 +1325,8 @@ async function onResult(r) {
           sub: 'just generated',
           cover: sibs[i]?.entry?.cover_url || null, id: sibIds[i],
         }),
-      })))));
+      }))),
+    r.score ? scoreCard(r, 'Score it sang to') : null));
   loadIt(r, title, cover);
   hooks.onGenerated?.(r);
   // jobs.js toasts on cancel and on error but never on success, so a render
@@ -1218,9 +1349,15 @@ export function applyReuse(r) {
   // Reuse is an ordinary generation: if cover mode was on it must end, or the
   // pinned model would fight the model this record asks for.
   if (coverOn) setCoverMode(false);
-  if (r.model && cfg.backends[r.model]) F.model.value = r.model;
+  if (r.model && cfg.backends[r.model]) {
+    if (usable(r.model)) F.model.value = r.model;
+    else toast(`${cfg.backends[r.model].label} is not available here — ${cfg.backends[r.model].unavailable_reason || ''}. Prompt loaded on ${cfg.backends[F.model.value]?.label}.`, 'err');
+  }
   if (r.prompt != null) F.prompt.value = r.prompt;
   F.lyrics.value = r.lyrics || '';
+  // The score travels with a YuE2 record; any other record clears it.
+  if (r.cot && [...F.cot.options].some((o) => o.value === r.cot)) F.cot.value = r.cot;
+  F.abc.value = r.score || '';
   if (r.duration != null) F.duration.value = r.duration;
   if (r.steps != null) F.steps.value = r.steps;
   if (r.seed != null) F.seed.value = r.seed;

@@ -779,6 +779,32 @@ Discoverability lost by hiding is repaid by `#c-caps`, a line under the model
 select naming what that model adds and what it gives up — hiding a control
 otherwise removes the evidence it ever existed.
 
+## 24. An engine with a score stage (YuE2)
+
+YuE2 writes an ABC score — melody, chords, structure, tempo — before it sings,
+and that score is text. The Create pane treats it as a first-class artefact:
+
+- A **Score** group appears only for an engine whose capability map says
+  `score`. It holds the plan mode (full / melody only / no plan), an ABC
+  textarea, **Plan score only** and **Clear score**. Steps and duration leave
+  with the engines that have them (`steps`, `duration` capabilities).
+- **Plan score only** runs the first stage alone and shows the score in the
+  results column with one button, *Edit this score*, that puts it in the
+  textarea. Nothing lands in the library. Generate then sings to the edited
+  score; the result card shows *Score it sang to* with the same button.
+- A pasted score with **No plan** is warned about in the form and refused by
+  the server; the form never sends what the engine would ignore.
+- The sidecar records the score that was in the forward pass and the plan
+  mode; **Reuse** restores both. A record from another engine clears the box.
+- An engine this box cannot run (venv missing, weights absent, card too
+  small) stays in the model list **disabled, with the reason on the option** —
+  hiding it would hide the reason to buy the bigger card. This is the one
+  exception to §23's "leaves the screen": there is nothing to open, and the
+  reason is the content.
+
+Verified here against a stub pipeline (`probe_score.py`, `probe_yue2_live.py`);
+not yet against the model, which needs a 24 GB card.
+
 ## Acceptance test
 
 At **390×844** and **360×740**:

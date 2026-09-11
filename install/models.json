@@ -90,6 +90,30 @@
       "what": "Vocal separation, used before transcription"
     },
     {
+      "id": "yue2-3b",
+      "repo": "m-a-p/YuE2-3B",
+      "dest": "minimax/hf",
+      "hf_cache": true,
+      "ignore": ["assets/*"],
+      "size_gb": 7.3,
+      "tier": "standard",
+      "min_vram_gb": 24,
+      "what": "YuE2 3B - plans an editable ABC score, then sings it (48 kHz stereo)",
+      "note": "Skipped automatically on cards under 24 GB. Weights are CC BY-NC 4.0 (non-commercial); the code is Apache-2.0. `assets/` holds 6 demo mp3s and is not pulled."
+    },
+    {
+      "id": "yue2-vae",
+      "repo": "m-a-p/YuE2-Vae",
+      "dest": "minimax/hf",
+      "hf_cache": true,
+      "ignore": ["assets/*"],
+      "size_gb": 0.5,
+      "tier": "standard",
+      "min_vram_gb": 24,
+      "what": "YuE2 audio decoder",
+      "note": "Goes with yue2-3b; useless without it."
+    },
+    {
       "id": "apollo-mp3",
       "repo": "JusperLee/Apollo",
       "file": "pytorch_model.bin",
@@ -189,6 +213,8 @@
      "what": "the web server and every pure-python helper"},
     {"name": "label",     "python": "3.12", "torch": "cpu", "dir": "train/.venv-label",
      "what": "beat_this + librosa: bpm/key/meter labelling for the training set (CPU only)"},
+    {"name": "yue2",      "python": "3.12", "torch": "cu128",
+     "what": "YuE2 3B score-planned generator. Installs anywhere; RUNS only on a 24 GB card"},
     {"name": "minimax",   "python": "3.12", "torch": "cu128",
      "what": "MiniMax Music 3, and the writer LLM"},
     {"name": "acestep",   "python": "3.12", "torch": "cu128",

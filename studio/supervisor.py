@@ -56,6 +56,20 @@ BACKENDS = {
         vram_gb=6.0,
         note="48 kHz. Fast, and the only one here that can cover a track.",
     ),
+    "yue2": dict(
+        label="YuE2 (3B)",
+        python=os.path.join(ROOT, "yue2", ".venv", "Scripts", "python.exe"),
+        script=os.path.join(STUDIO, "workers", "yue2_worker.py"),
+        # The documented floor: bf16, the 3B model plus the VAE plus the plan
+        # and semantic caches. YuE2 does carry an fp8 mode (Ada/Blackwell
+        # cards) and an AR-offload switch -- see yue2_worker.py -- so a 16 GB
+        # card MAY work with YUE2_QUANT=fp8; lower the floor with
+        # YUE2_VRAM_GB to try it. Nothing below 24 has been measured.
+        vram_gb=float(os.environ.get("YUE2_VRAM_GB", "24") or 24),
+        note="48 kHz stereo. Plans an editable score (melody, chords, "
+             "structure, tempo) before singing. Needs a 24 GB card; "
+             "weights are non-commercial (CC BY-NC 4.0).",
+    ),
 }
 
 

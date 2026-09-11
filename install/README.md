@@ -36,7 +36,7 @@ copied by hand.
 
 | path | how it gets there | size |
 |---|---|---|
-| `*/.venv`, `train/.venv-label` | `-Stage venvs` | ~30 GB |
+| `*/.venv`, `train/.venv-label`, `yue2/.venv` | `-Stage venvs` | ~35 GB |
 | `acestep/ACE-Step-1.5`, `msst/MSST`, `flashsr/FlashSR_Inference`, `watermark/ai-music-detector` | `-Stage clones` | ~0.5 GB |
 | `acestep/checkpoints`, `minimax/hf`, `msst/checkpoints`, FlashSR `ModelWeights` | `-Stage models` | 74–128 GB |
 | `Music/studio` — the library, sidecars, `settings.json` | **copy by hand** if you want the library on the new box | varies |
@@ -78,6 +78,35 @@ foreach ($v in "studio","minimax","acestep","lyrics","watermark","flashsr","msst
 }
 & ".\train\.venv-label\Scripts\python.exe" -m pip freeze --local > ".\install\requirements\label.txt"
 ```
+
+## YuE2 on the 24 GB machine
+
+The fourth engine, `yue2`, plans an editable ABC score before it sings. Its
+venv installs anywhere (the package imports fine on Windows with the cu128
+torch build) but the weights are gated at `min_vram_gb: 24`, so on a 10 GB card
+the installer skips them and the studio lists the engine **disabled with the
+reason on the option**. On the big card `.\install.ps1` pulls `m-a-p/YuE2-3B`
+(7.3 GB) and `m-a-p/YuE2-Vae` (0.5 GB) into `minimax\hf` and the option comes
+alive on the next server start — no code change.
+
+Knobs, all environment variables read by `studio\workers\yue2_worker.py` when
+the supervisor starts it (set them in the shell before `serve.ps1`):
+
+| variable | what |
+|---|---|
+| `YUE2_QUANT=fp8` | fp8 autoregressive weights; needs an RTX 40/50-series card (compute 8.9+). The one lever below 24 GB |
+| `YUE2_OFFLOAD_AR=1` | park the language model in RAM during the acoustic stage |
+| `YUE2_MEMORY_BUDGET_GIB` | YuE2's own per-process cap; default 24 |
+| `YUE2_VRAM_GB` | lower the studio's 24 GB gate to try the above on a 16 GB card. Unmeasured |
+
+**Not yet run on hardware.** The whole path — validation, worker protocol,
+sidecar, library, the score editor — was exercised here against a stub
+pipeline with YuE2's signatures. The first real render is the test; a failure
+shows in `web\srv_err.txt`. Weights are CC BY-NC 4.0: non-commercial.
+
+SheetSage2 (audio → score, for covering a recording) is a separate venv
+(Python 3.10/3.11, torch 2.8, **FFmpeg 6.1 shared libraries**) and is not
+wired yet; a transcribed `score.abc` pastes into the score box meanwhile.
 
 ## Models follow the card
 

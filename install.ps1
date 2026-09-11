@@ -187,11 +187,13 @@ function Stage-Models($vram) {
 
         if ($PSCmdlet.ShouldProcess($m.id, "download $($m.repo) (~$($m.size_gb) GB)")) {
             Say "        $($m.repo) -> $dest  (~$($m.size_gb) GB)"
+            # Optional `ignore`: glob patterns not worth the bytes (demo audio).
+            $ig = if ($m.ignore) { ",ignore_patterns=" + (ConvertTo-Json @($m.ignore) -Compress) } else { "" }
             $code = if ($m.hf_cache) {
                 # Cache layout: many repos share one HF_HOME, deduplicated.
                 "import os;os.environ['HF_HOME']=r'$dest';" +
                 "from huggingface_hub import snapshot_download;" +
-                "snapshot_download('$($m.repo)',max_workers=4)"
+                "snapshot_download('$($m.repo)',max_workers=4$ig)"
             } elseif ($m.file) {
                 # One file out of a repo, saved under OUR name: the Apollo
                 # checkpoints are called something else upstream.

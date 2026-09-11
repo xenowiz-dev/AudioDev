@@ -176,6 +176,7 @@ const CONFIG = {
       label: 'MiniMax Music 3',
       note: '44.1 kHz stereo, sung lyrics. 4-bit LLM. ~7x realtime.',
       vram_gb: 8.0, requires_lyrics: true, supports_instrumental: false, supports_cover: false,
+      available: true, unavailable_reason: null,
       default_steps: 30, default_prompt: MM(96, 'C', 'Acoustic Pop', 'Warm'), prompt_lines: 10,
       prompt_info: 'MiniMax was trained on sectioned captions — keep the Global Metadata / Vocal Details / Arrangement headings; short prompts lose arrangement control.',
       lyrics_info: 'Required — MiniMax has no instrumental mode.',
@@ -187,6 +188,20 @@ const CONFIG = {
       default_steps: 8, default_prompt: STYLES[3][1], prompt_lines: 4,
       prompt_info: 'Plain keyword-style prompt.',
       lyrics_info: 'Leave blank, or tick Instrumental above.',
+      available: true, unavailable_reason: null,
+    },
+    // Available in the mock so the score form is developable here; the live
+    // 10 GB box reports it disabled with the VRAM reason on the option.
+    yue2: {
+      label: 'YuE2 (3B)',
+      note: '48 kHz stereo. Plans an editable score (melody, chords, structure, tempo) before singing. Needs a 24 GB card; weights are non-commercial (CC BY-NC 4.0).',
+      vram_gb: 24.0, requires_lyrics: true, supports_instrumental: false, supports_cover: false,
+      default_steps: 30,
+      default_prompt: 'English, warm piano pop, expressive female voice, acoustic piano, rounded bass and light drums, lyrical memorable melody, unhurried phrasing, 88 BPM',
+      prompt_lines: 4,
+      prompt_info: 'One line: language, genre, voice, instruments, feel, tempo. YuE2 writes a score from this before any audio.',
+      lyrics_info: 'Required. Use [Verse] / [Chorus] / [Bridge] section tags. With a supplied score the words must fit its phrasing and syllable counts.',
+      available: true, unavailable_reason: null,
     },
   },
   default_lyrics: LYRICS,
@@ -266,16 +281,37 @@ const CONFIG = {
   capabilities: {
     minimax: {
       thinking: false, auto_duration: false, takes: false, variants: false,
-      loras: false, quality: true,
+      loras: false, quality: true, score: false, steps: true, duration: true,
       cover: false, instrumental: false, lyrics_required: true,
     },
     acestep: {
       thinking: true, auto_duration: true, takes: true, variants: true,
-      loras: true, quality: false,
+      loras: true, quality: false, score: false, steps: true, duration: true,
       cover: true, instrumental: true, lyrics_required: false,
+    },
+    yue2: {
+      thinking: false, auto_duration: false, takes: false, variants: false,
+      loras: false, quality: false, score: true, steps: false, duration: false,
+      cover: false, instrumental: false, lyrics_required: true,
     },
   },
   requires: { auto_duration: 'thinking' },
+  score: {
+    applies_to: ['yue2'], default: 'full',
+    modes: [
+      { id: 'full', label: 'Full plan — melody and chords',
+        note: 'The model writes melody, harmony, structure and tempo first, then sings to it. Editable afterwards.' },
+      { id: 'melody', label: 'Melody only',
+        note: 'Plans the tune and leaves the accompaniment free. The recommended mode for covering a supplied score in a new style.' },
+      { id: 'off', label: 'No plan',
+        note: 'Straight from lyrics and style, like the other engines. A pasted score is ignored in this mode.' },
+    ],
+    max_abc_chars: 65536,
+    note: 'Paste an ABC score to cover it, or press Plan score only to get one from the prompt and lyrics, edit it, then Generate.',
+    licence: 'YuE2 weights are CC BY-NC 4.0 — non-commercial.',
+  },
+  steps: { applies_to: ['minimax', 'acestep'] },
+  duration: { applies_to: ['minimax', 'acestep'] },
 
   thinking: {
     default: false, applies_to: ['acestep'], model: 'acestep-5Hz-lm-1.7B',
@@ -361,6 +397,17 @@ const BANDWIDTH = `check_bandwidth  song.mp3
   drop across it   12.4 dB
   verdict          lossy source — a real codec cliff, worth restoring`;
 
+/* A short ABC score, the shape YuE2 plans: headers, tempo, key, then bars
+   with chord symbols. Enough to fill the editor and the result card. */
+const SCORE = [
+  'X:1', 'T:mock plan', 'M:4/4', 'L:1/8', 'Q:1/4=88', 'K:C',
+  '%%section Verse',
+  '"C" C2 E2 G2 c2 | "Am" A2 c2 e2 a2 | "F" F2 A2 c2 f2 | "G" G2 B2 d2 g2 |',
+  '"C" c2 B2 A2 G2 | "Am" A2 G2 F2 E2 | "F" F2 E2 D2 C2 | "G" G4 z4 |',
+  '%%section Chorus',
+  '"F" f2 e2 d2 c2 | "G" g2 f2 e2 d2 | "Am" a2 g2 f2 e2 | "C" c8 |]',
+].join('\n');
+
 /* ── fake jobs ─────────────────────────────────────────────────────────── */
 const JOBS = new Map();
 let jobN = 0;
@@ -397,6 +444,34 @@ const SCRIPTS = {
       seconds: 31.2, elapsed: 214.0, sampling_rate: 44100, realtime_ratio: 6.86,
       vram_peak: 8.71, vram_idle: 0.15, preview: false, post: null,
     }],
+  ],
+  // YuE2: the same shape plus the score it sang to.
+  generate_yue2: [
+    [0, 'progress', { msg: 'starting YuE2 (3B) (first load takes ~60 s)' }],
+    [1, 'vram', { used_gb: 19.2, total_gb: 24, free_gb: 4.8, loaded: 'yue2' }],
+    [2, 'progress', { msg: 'planning score', stage: 'plan' }],
+    ...Array.from({ length: 4 }, (_, k) => [3 + k, 'progress',
+      { msg: `planning score: ${(k + 1) * 120} tokens`, stage: 'plan' }]),
+    ...Array.from({ length: 6 }, (_, k) => [7 + k, 'progress',
+      { msg: `singing: ${(k + 1) * 400} tokens`, stage: 'semantic' }]),
+    [13, 'progress', { msg: 'saving', stage: 'save', frac: 1 }],
+    [14, 'artifact', { kind: 'audio', label: 'generated', path: `${OUT}\\mock_yue2.flac`, url: AUDIO[1] }],
+    [15, 'result', {
+      path: `${OUT}\\mock_yue2.flac`, url: AUDIO[1],
+      library_id: 'mock_yue2.flac',
+      final_path: `${OUT}\\mock_yue2.flac`, final_url: AUDIO[1],
+      seconds: 96.0, elapsed: 180.0, sampling_rate: 48000, realtime_ratio: 1.9,
+      vram_peak: 21.4, vram_idle: 0.2, preview: false, post: null,
+      score: SCORE, cot: 'full', plan_dir: `${OUT}\\yue2\\mock_yue2`, truncated: null,
+    }],
+  ],
+  plan: [
+    [0, 'progress', { msg: 'starting YuE2 (3B) (first load takes ~60 s)' }],
+    [1, 'progress', { msg: 'planning score', stage: 'plan' }],
+    ...Array.from({ length: 4 }, (_, k) => [2 + k, 'progress',
+      { msg: `planning score: ${(k + 1) * 120} tokens`, stage: 'plan' }]),
+    [6, 'result', { plan_only: true, score: SCORE, cot: 'full', plan_dir: `${OUT}\\yue2\\mock_plan`,
+      truncated: { abc: false }, elapsed: 22.0, vram_peak: 9.1, seconds: null, preview: false }],
   ],
   upscale: [
     [0, 'progress', { msg: '--- Apollo — fast, trained on codec artifacts ---' }],
@@ -442,7 +517,7 @@ const SCRIPTS = {
 const TERMINAL = new Set(['result', 'error', 'cancelled']);
 
 function runJob(job) {
-  const script = SCRIPTS[job.kind] || SCRIPTS.generate;
+  const script = SCRIPTS[job.script || job.kind] || SCRIPTS.generate;
   job.state = 'running'; job.started = Date.now() / 1000;
   const step = 140;   // ms per scripted tick — fast enough for a test run
   for (const [tick, name, data] of script) {
@@ -646,10 +721,11 @@ export function transport() {
 
       if (p === '/api/generate' || p === '/api/upscale'
           || p === '/api/lyrics/transcribe' || p === '/api/write') {
-        const kind = p === '/api/generate' ? 'generate'
+        const kind = p === '/api/generate' ? (body?.plan_only ? 'plan' : 'generate')
           : p === '/api/upscale' ? 'upscale'
             : p === '/api/write' ? 'write' : 'transcribe';
         const job = newJob(kind, body);
+        if (kind === 'generate' && body?.model === 'yue2') job.script = 'generate_yue2';
         runJob(job);
         return { job_id: job.id, kind, state: 'queued', stream_url: `/api/jobs/${job.id}/events`, out_name: 'mock_generated.wav' };
       }

@@ -100,6 +100,11 @@ Secondary: soft piano pads; brushed drums and upright bass enter at the chorus."
 
 ACESTEP_PROMPT = ("upbeat indie pop, jangly electric guitar, live drums, "
                   "warm analog production, 110 bpm")
+# The shape YuE2's own examples/song.json uses: language first, then genre,
+# voice, instruments, feel, and a tempo. Its style field is a plain string.
+YUE2_PROMPT = ("English, warm piano pop, expressive female voice, acoustic "
+               "piano, rounded bass and light drums, lyrical memorable "
+               "melody, unhurried phrasing, 88 BPM")
 
 DEFAULT_LYRICS = """[verse]
 Morning light filtering through the pine
@@ -120,7 +125,59 @@ PROMPT_META = {
         default_steps=8, default_prompt=ACESTEP_PROMPT, prompt_lines=4,
         prompt_info="Plain keyword-style prompt.",
         lyrics_info="Leave blank, or tick Instrumental above."),
+    "yue2": dict(
+        requires_lyrics=True, supports_instrumental=False, supports_cover=False,
+        default_steps=30, default_prompt=YUE2_PROMPT, prompt_lines=4,
+        prompt_info="One line: language, genre, voice, instruments, feel, "
+                    "tempo. YuE2 writes a score from this before any audio.",
+        lyrics_info="Required. Use [Verse] / [Chorus] / [Bridge] section "
+                    "tags. With a supplied score the words must fit its "
+                    "phrasing and syllable counts."),
 }
+
+# YuE2's planning modes (protocol.SongRequest accepts exactly these) and how
+# much ABC a request may carry. A full song's score is a few KB; 64 KB is
+# room for anything hand-edited and a wall against a pasted binary.
+SCORE_MODES = ("full", "melody", "off")
+SCORE_MAX_CHARS = 65536
+
+# Where each backend's weights land, so the studio can say "installed" without
+# a worker start. Cache-layout repos live under HF_HOME as hub/models--org--name.
+_HF_HOME = os.path.join(ROOT, "minimax", "hf")
+BACKEND_WEIGHTS = {
+    "yue2": [os.path.join(_HF_HOME, "hub", "models--m-a-p--YuE2-3B"),
+             os.path.join(_HF_HOME, "hub", "models--m-a-p--YuE2-Vae")],
+}
+
+
+def backend_availability(name):
+    """(available, reason): can this backend be started on THIS box, now.
+
+    Three facts, all read from the machine rather than assumed: the venv
+    exists, the weights are on disk, and the card is big enough. A backend
+    that fails one is still LISTED -- hiding it would hide the reason to buy
+    the bigger card -- but it cannot be selected and a POST naming it is a 400.
+    """
+    forced = (os.environ.get("STUDIO_FORCE_AVAILABLE", "").split(",")
+              if TEST_HOOKS else [])
+    if name in forced:
+        return True, None
+    cfg = BACKENDS.get(name) or {}
+    if not os.path.isfile(cfg.get("python", "")):
+        return False, (f"not installed — run install.ps1 -Stage venvs "
+                       f"({os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(cfg.get('python', '')))))} venv)")
+    # The card before the weights: on a small card the installer skips the
+    # download on purpose, and "weights missing" would send someone to fetch
+    # 8 GB that cannot run.
+    _used, total = gpu_memory()
+    need = cfg.get("vram_gb") or 0
+    if total and need and total + 0.5 < need:
+        return False, (f"needs a {need:.0f} GB card; this one has "
+                       f"{total:.0f} GB")
+    for w in BACKEND_WEIGHTS.get(name, []):
+        if not os.path.isdir(w):
+            return False, "weights not downloaded — run install.ps1 -Stage models"
+    return True, None
 
 NOTES = {
     "post_kind": "Runs after generation. Measured: neither generator leaves a "
@@ -594,6 +651,9 @@ def api_entry(e):
                      else bool(rec.get("thinking"))),
         "lm_temperature": _num(rec.get("lm_temperature")),
         "quality": rec.get("quality") or None,
+        # YuE2 provenance: the planning mode and the ABC score it sang to.
+        "cot": rec.get("cot") or None,
+        "score": rec.get("score") or None,
 
         "title_override": rec.get("title", "") or "",
         "style": rec.get("style", "") or "",
@@ -762,7 +822,7 @@ def sweep_uploads():
 # is built from the SAME data the client reads, rather than a second list that
 # drifts the first time a feature changes hands.
 _GATED_FEATURES = ("thinking", "auto_duration", "takes", "variants",
-                   "loras", "quality")
+                   "loras", "quality", "score", "steps", "duration")
 
 
 def _capabilities(cfg):
@@ -788,8 +848,10 @@ def get_config():
     backends = {}
     for name, cfg in BACKENDS.items():
         meta = PROMPT_META.get(name, {})
+        avail, why = backend_availability(name)
         backends[name] = {"label": cfg["label"], "note": cfg["note"],
-                          "vram_gb": cfg["vram_gb"], **meta}
+                          "vram_gb": cfg["vram_gb"], "available": avail,
+                          "unavailable_reason": why, **meta}
     phone = None
     url_file = os.path.join(ASSETS, "phone_url.txt")
     qr_file = os.path.join(ASSETS, "phone_qr.png")
@@ -871,6 +933,33 @@ def get_config():
         "llm_title": {"ready": llm_ready(), "model_id": llm_title.MODEL_ID,
                       "hint": f"{llm_title.MODEL_ID} on CPU, ~9 s. Off uses "
                               f"the instant heuristic."},
+        # YuE2 composes a symbolic score (ABC notation) BEFORE any audio, and
+        # that score is text you can read, edit and hand back. This is the
+        # structure control nothing else here has; it is also why steps and
+        # duration do not apply to it -- length follows the lyrics and the plan.
+        "score": {
+            "applies_to": ["yue2"], "default": "full",
+            "modes": [
+                {"id": "full", "label": "Full plan — melody and chords",
+                 "note": "The model writes melody, harmony, structure and tempo "
+                         "first, then sings to it. Editable afterwards."},
+                {"id": "melody", "label": "Melody only",
+                 "note": "Plans the tune and leaves the accompaniment free. The "
+                         "recommended mode for covering a supplied score in a new "
+                         "style."},
+                {"id": "off", "label": "No plan",
+                 "note": "Straight from lyrics and style, like the other engines. "
+                         "A pasted score is ignored in this mode."},
+            ],
+            "max_abc_chars": SCORE_MAX_CHARS,
+            "note": "Paste an ABC score to cover it, or press Plan score only "
+                    "to get one from the prompt and lyrics, edit it, then "
+                    "Generate. Notes, bars, sections and tempo in the score "
+                    "are honoured; timbre and singing are not fixed by it.",
+            "licence": "YuE2 weights are CC BY-NC 4.0 — non-commercial.",
+        },
+        "steps": {"applies_to": ["minimax", "acestep"]},
+        "duration": {"applies_to": ["minimax", "acestep"]},
         "phone": phone,
         "notes": NOTES,
         "quality": quality_catalogue(),
@@ -1057,13 +1146,51 @@ def post_generate(body: dict = Body(default=None)):
 
     if model not in BACKENDS:
         raise bad("Unknown model.")
+    avail, why = backend_availability(model)
+    if not avail:
+        raise bad(f"{BACKENDS[model]['label']} is not available here: {why}.",
+                  {"field": "model", "model": model})
     if not prompt.strip():
         raise bad("A style description is required.")
-    if model == "minimax" and not lyrics.strip():
-        raise bad("MiniMax Music 3 requires lyrics — it has no instrumental "
-                  "mode. Use ACE-Step for instrumentals.")
-    if instrumental and model != "acestep":
+    meta = PROMPT_META.get(model, {})
+    if meta.get("requires_lyrics") and not lyrics.strip():
+        raise bad(f"{BACKENDS[model]['label']} requires lyrics — it has no "
+                  f"instrumental mode. Use ACE-Step for instrumentals.")
+    if instrumental and not meta.get("supports_instrumental"):
         raise bad("Instrumental is ACE-Step only.")
+
+    # -- score (YuE2) -------------------------------------------------------
+    # `cot` is the planning mode; `abc` is a score to honour. Both are YuE2's
+    # and a request that sends them elsewhere is naming a control that does
+    # not exist on that engine, so it is refused rather than dropped.
+    cot = str(_f(b, "cot", "") or "").strip().lower()
+    abc = _f(b, "abc", "") or ""
+    abc = abc if isinstance(abc, str) else ""
+    plan_only = bool(_f(b, "plan_only", False))
+    cfg_scale = _f(b, "cfg_scale", None)
+    if model == "yue2":
+        cot = cot or "full"
+        if cot not in SCORE_MODES:
+            raise bad("Unknown plan mode.", {"field": "cot",
+                                             "allowed": list(SCORE_MODES)})
+        if len(abc) > SCORE_MAX_CHARS:
+            raise bad(f"The score is too long ({len(abc)} characters; the "
+                      f"limit is {SCORE_MAX_CHARS}).", {"field": "abc"})
+        if abc.strip() and cot == "off":
+            raise bad("A supplied score needs a plan mode — pick Full plan or "
+                      "Melody only. With No plan the score would be ignored.",
+                      {"field": "cot", "needs": "full|melody"})
+        if plan_only and cot == "off":
+            raise bad("Plan score only needs a plan mode.", {"field": "cot"})
+        if cfg_scale is not None:
+            cfg_scale = num_arg(cfg_scale, 0.0)
+            if not (0.0 <= cfg_scale <= 20.0):
+                raise bad("Out of range.", {"field": "cfg_scale"})
+    else:
+        if cot or abc.strip() or plan_only:
+            raise bad("Score planning is a YuE2 feature.",
+                      {"field": "cot", "model": model})
+        cot, abc, cfg_scale = None, "", None
     if post_kind not in pp.UPSCALERS:
         raise bad("Unknown upscaler.")
     # num_arg, not int()/float(): JSON `true` is not the number 1, and letting
@@ -1199,9 +1326,21 @@ def post_generate(body: dict = Body(default=None)):
             params.update(lora_path=lora["path"],
                           lora_name=lo.adapter_name(lora["id"]),
                           lora_scale=lora_scale)
+        if model == "yue2":
+            # Length follows the lyrics and the plan; steps do not exist. The
+            # worker ignores both, and the sidecar records neither, so a
+            # record never claims a setting that was not in the forward pass.
+            params.pop("duration", None)
+            params.pop("steps", None)
+            params.update(cot=cot, abc=abc.strip(), plan_only=plan_only)
+            if cfg_scale is not None:
+                params.update(cfg_scale=float(cfg_scale))
 
         req = {"model": model, "prompt": prompt, "lyrics": lyrics,
-               "duration": duration, "steps": steps, "seed": seed,
+               "duration": None if model == "yue2" else duration,
+               "steps": None if model == "yue2" else steps, "seed": seed,
+               "cot": cot, "abc": abc.strip() or None, "plan_only": plan_only,
+               "cfg_scale": cfg_scale,
                "instrumental": instrumental, "post_kind": post_kind,
                "preview": preview, "src_path": src_path,
                "cover_strength": cover_strength,
@@ -1215,12 +1354,42 @@ def post_generate(body: dict = Body(default=None)):
                "lora": lora["id"] if lora else None,
                "lora_name": lora["name"] if lora else None,
                "lora_scale": lora_scale if lora else None}
-        job = J.Job("generate", req)
+        job = J.Job("plan" if plan_only else "generate", req)
         job.extra["params"] = params
-        _enqueue(job, _run_generate)
-    return {"job_id": job.id, "kind": "generate", "state": job.state,
+        _enqueue(job, _run_plan if plan_only else _run_generate)
+    return {"job_id": job.id, "kind": job.kind, "state": job.state,
             "stream_url": f"/api/jobs/{job.id}/events", "out_name": out_name,
             "quality": quality}
+
+
+def _run_plan(job):
+    """YuE2's first stage alone: the score, no audio.
+
+    Its own runner because it produces no file -- `_run_generate` treats a
+    missing path as a dead worker, which is the right rule for every other
+    request. Nothing is written to the library; the score comes back in the
+    job result and the client puts it in the editor.
+    """
+    r = job.request
+    params = job.extra["params"]
+    if job.cancel_requested:
+        job.cancel()
+        return
+    res = SUP.generate(r["model"], params, on_progress=job.emit)
+    if job.cancel_requested:
+        job.cancel()
+        return
+    if not res or not res.get("score"):
+        job.fail("worker_died", "The worker returned no score.")
+        return
+    trunc = res.get("truncated") or {}
+    if any(trunc.values()):
+        job.line("the plan hit the model's length limit and was truncated — "
+                 "shorter lyrics, or fewer sections, give it room")
+    job.succeed({"plan_only": True, "score": res["score"], "cot": r.get("cot"),
+                 "plan_dir": res.get("plan_dir"), "truncated": trunc,
+                 "elapsed": res.get("elapsed"), "vram_peak": res.get("vram_peak"),
+                 "seconds": None, "preview": False})
 
 
 def _enqueue(job, fn):
@@ -1265,6 +1434,10 @@ def _run_generate(job):
 
     path = res["path"]
     job.artifact("audio", "generated", path, media_url(path))
+    trunc = res.get("truncated") or {}
+    if any(trunc.values()):
+        job.line("truncated: the plan or the singing hit the model's length "
+                 "limit — the song is complete up to that point")
 
     # Every take gets the same sidecar, so a second take is a first-class
     # library member rather than the orphan ACE-Step's batch_size=2 used to
@@ -1273,10 +1446,18 @@ def _run_generate(job):
 
     # The sidecar is written for the GENERATED file, before any post step: the
     # upscaled derivative lives in upscaled\ and is reachable via post_kind.
+    dur, stp = r.get("duration"), r.get("steps")
     lib.write(path, model=model, prompt=r["prompt"],
               lyrics=None if r["instrumental"] else (r["lyrics"] or None),
               instrumental=bool(r["instrumental"]),
-              duration=float(r["duration"]), steps=int(r["steps"]),
+              duration=None if dur is None else float(dur),
+              steps=None if stp is None else int(stp),
+              # The score that was in the forward pass, read back from the
+              # worker: what YuE2 actually planned (or was handed), so a
+              # track can be re-rendered from its own score later.
+              score=res.get("score") or None, cot=r.get("cot") or None,
+              plan_dir=res.get("plan_dir") or None,
+              truncated=trunc or None,
               seed=int(r["seed"]), post_kind=r["post_kind"],
               preview=bool(r["preview"]),
               cover_src=r["src_path"] if (model == "acestep" and r["src_path"])
@@ -1302,7 +1483,8 @@ def _run_generate(job):
             lib.write(extra, model=model, prompt=r["prompt"],
                       lyrics=None if r["instrumental"] else (r["lyrics"] or None),
                       instrumental=bool(r["instrumental"]),
-                      duration=float(r["duration"]), steps=int(r["steps"]),
+                      duration=None if dur is None else float(dur),
+                      steps=None if stp is None else int(stp),
                       seed=int(r["seed"]), post_kind="none",
                       preview=bool(r["preview"]), quality=q,
                       lora=r.get("lora"), lora_name=r.get("lora_name"),
@@ -1365,6 +1547,9 @@ def _run_generate(job):
         "variant": r.get("variant"),
         "thinking": bool(res.get("thinking")),
         "lm_temperature": r.get("lm_temperature"),
+        # YuE2 only; null elsewhere. The score is the editable artefact.
+        "score": res.get("score") or None, "cot": r.get("cot"),
+        "plan_dir": res.get("plan_dir"), "truncated": trunc or None,
         "post": post,
     })
 
@@ -2167,6 +2352,8 @@ def get_reuse(track_id: str):
             "steps": int(rec.get("steps") or 30),
             "seed": int(rec.get("seed") or 7),
             "instrumental": bool(rec.get("instrumental")),
+            "cot": rec.get("cot") or None,
+            "score": rec.get("score") or None,
             "message": f"Loaded **{track_id}** into Generate ✓"}
 
 

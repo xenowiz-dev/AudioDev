@@ -179,9 +179,30 @@
         </label>
         </section>
 
+        <!-- YuE2 only: the symbolic plan. A score is text -- plan it, read it,
+             edit it, hand it back. Hidden on engines that have no such stage. -->
+        <section class="cgroup" id="cg-score" hidden>
+          <p class="eyebrow">Score</p>
+        <div class="field" id="c-cot-field">
+          <label class="flabel" for="c-cot">Plan</label>
+          <select id="c-cot"></select>
+          <p class="fhint" id="c-cot-note"></p>
+        </div>
+        <div class="field" id="c-abc-field">
+          <label class="flabel" for="c-abc">ABC score</label>
+          <textarea id="c-abc" rows="8" spellcheck="false" placeholder="Optional. Paste an ABC score to cover it, or press Plan score only."></textarea>
+          <p class="fhint" id="c-abc-note"></p>
+          <div class="btnrow">
+            <button type="button" class="btn btn--ghost" id="c-plan">Plan score only</button>
+            <button type="button" class="btn btn--ghost" id="c-abc-clear">Clear score</button>
+          </div>
+          <p class="fhint" id="c-abc-msg"></p>
+        </div>
+        </section>
+
         <section class="cgroup" id="cg-output">
           <p class="eyebrow">Output</p>
-        <div class="field">
+        <div class="field" id="c-duration-field">
           <label class="flabel" for="c-duration">Duration <output id="c-duration-out">30s</output></label>
           <input type="range" id="c-duration" min="10" max="300" step="5" value="30">
           <label class="check" id="c-autodur-wrap" hidden><input type="checkbox" id="c-autodur"><span>Let the model choose</span></label>
@@ -206,7 +227,7 @@
         </div>
 
         <div class="grid2">
-          <div class="field">
+          <div class="field" id="c-steps-field">
             <label class="flabel" for="c-steps">Steps <output id="c-steps-out">30</output></label>
             <input type="range" id="c-steps" min="4" max="60" step="1" value="30">
           </div>

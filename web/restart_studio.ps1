@@ -46,12 +46,13 @@ if ($active -and $active.Count -gt 0) {
 }
 
 # --- stop the server AND its workers ------------------------------------
-$pat = '\*uvicorn\*7862\*|acestep_worker|minimax_worker'
+$pat = '\*uvicorn\*7862\*|acestep_worker|minimax_worker|yue2_worker'
 Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
     Where-Object {
         $_.CommandLine -like "*uvicorn*7862*" -or
         $_.CommandLine -like "*acestep_worker*" -or
-        $_.CommandLine -like "*minimax_worker*"
+        $_.CommandLine -like "*minimax_worker*" -or
+        $_.CommandLine -like "*yue2_worker*"
     } | ForEach-Object {
         Write-Host "  stopping $($_.ProcessId)"
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue

@@ -1209,3 +1209,9 @@ label { text-transform: uppercase; letter-spacing: var(--ls-label); }
 }
 /* Cover is a live mode, so its group is marked while it is on. */
 #cg-cover { border-left: 2px solid var(--accent); padding-left: var(--sp-3); }
+
+/* The ABC score as a result card: mono, wrapped, capped so a long plan does
+   not push the Play button off the phone. */
+.score-pre { font-family: var(--mono); font-size: var(--fs-sm); line-height: 1.45;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto;
+  margin: 0; padding: var(--sp-2); background: var(--ink-2); border: 1px solid var(--rule); }

@@ -1445,7 +1445,26 @@ Stated plainly, because guessing here would be worse than a gap.
     cannot promise it will work.
 
 
-## 9. YuE2 (m-a-p, September 2026) — assessed, not integrated
+## 9. YuE2 (m-a-p, September 2026) — integrated 2026-09-11, unverified on hardware
+
+**Status.** Wired in as the fourth engine (`studio/workers/yue2_worker.py`,
+`supervisor.BACKENDS["yue2"]`, the `score` capability, the Score group in the
+Create pane, `install/models.json` venv + weights gated at 24 GB). The
+package installs and imports on Windows with the cu128 torch build, so the
+"Linux" line in its README is a support statement, not a dependency. The whole
+path was exercised against a stub pipeline with YuE2's signatures; the model
+itself has not been loaded here (10 GB card). §9.1 below is the original
+assessment, kept because its reasoning still holds — only "not going in now"
+has changed to "in, waiting for the card".
+
+Two things the source showed that the README does not say: `quantization="fp8"`
+exists (compute capability 8.9+, so RTX 40/50 only) and `offload_ar=True`
+parks the language model in RAM during synthesis. Together they may bring a
+16 GB card into range; nothing below 24 GB has been measured. The worker exposes
+both as environment knobs (`YUE2_QUANT`, `YUE2_OFFLOAD_AR`) and the studio's
+gate can be lowered with `YUE2_VRAM_GB` to try it.
+
+### 9.1 The assessment (2026-09-10)
 
 Source: github.com/multimodal-art-projection/YuE and map-yue2.github.io, read
 2026-09-10. Package `yue2` v0.1.6, weights `m-a-p/YuE2-3B`.
@@ -1473,11 +1492,12 @@ It is the only model in this document whose emotion/timing control is
 it. That is a different kind of control from anything ACE-Step or MiniMax
 offer, and it is exactly what the "ideal timing" ask in §0 was about.
 
-**Why it is not going in now.**
+**Why it could not run here.**
 
-1. **24 GB of VRAM in bf16.** No quantised path is documented. This box has
-   10 GB shared with ComfyUI; even alone it does not fit. It goes in the same
-   column as ACE-Step XL and HeartMuLa: waits for the bigger card.
+1. **24 GB of VRAM in bf16.** No quantised path is *documented* (fp8 exists in
+   the source; see the status note above). This box has 10 GB shared with
+   ComfyUI; even alone it does not fit. It goes in the same column as ACE-Step
+   XL and HeartMuLa: waits for the bigger card.
 2. **Weights are CC BY-NC 4.0.** The code is Apache-2.0 but the model is
    non-commercial. If any Xenowiz release is ever sold, tracks rendered through
    YuE2 are a licence problem. ACE-Step and MiniMax do not have this restriction.
@@ -1487,8 +1507,13 @@ offer, and it is exactly what the "ideal timing" ask in §0 was about.
    and a capability block for the score features — a real integration, not a
    checkbox.
 
-**When the card arrives.** The integration is well-shaped for the capability
-model already in `api.py`: a `yue2` backend with `supports.score`,
-`supports.score_cover`, `supports.transcribe_score`, and a `cg-score` group in
-the Create pane that only appears for it. Do the score panel first; it is the
-feature nothing else here has.
+**What was built (2026-09-11).** A `yue2` backend with the `score` capability
+(plan modes full / melody / off, a pasted or planned ABC score, plan-only
+requests that return the score without audio) and a Score group in the Create
+pane that appears only for it; steps and duration became gated features and
+leave with it. Every render keeps YuE2's own artefact folder
+(`Music/studio/yue2/<stem>/`: score.abc, plan.json, latent.npy, result.json)
+and the sidecar records the score it sang to, so Reuse restores it.
+**Not built:** SheetSage2 transcription (separate venv, torch 2.8, FFmpeg 6.1
+shared libs) — a transcribed score pastes into the box meanwhile; mid-request
+cancel (YuE2 has a `cancelled` callback; the supervisor has no cancel path).
